@@ -1,0 +1,195 @@
+from __future__ import annotations
+
+import os
+import tempfile
+from typing import Optional
+
+import pandas as pd
+
+from backend.accounting.configuration import AccountingConfiguration
+from backend.accounting.engine import AccountingEngine
+from backend.ingestion.reader import read_csv_safely
+from backend.ingestion.detector import detect_exchange
+from backend.adapters.registry import get_adapter, AdapterNotFoundError
+from backend.reconciliation.duplicates import (
+    DuplicateDetector,
+    DuplicateClassification,
+)
+from backend.reconciliation.transfers import TransferReconciler
+from backend.reconciliation.converts import ConvertReconciler
+from backend.models.transaction import TransactionType
+from backend.processing.comments import CommentEngine
+from backend.processing.models import ProcessingResult, ProcessingSummary
+
+
+class ProcessingPipeline:
+    def __init__(self, timestamp_tolerance_seconds: int = 1):
+        if timestamp_tolerance_seconds < 0:
+            raise ValueError("Timestamp tolerance must be non-negative.")
+        self.timestamp_tolerance_seconds = timestamp_tolerance_seconds
+        self.comment_engine = CommentEngine()
+
+    def process_file(
+        self, file_path: str, timezone: Optional[str] = None, accounting_config: Optional[AccountingConfiguration] = None
+    ) -> ProcessingResult:
+        result = ProcessingResult()
+
+        if not timezone:
+            result.errors.append("Timezone must be explicitly provided.")
+            return result
+
+        try:
+            df, _row_count, _col_count, column_names, read_warnings = read_csv_safely(
+                file_path
+            )
+        except ValueError as e:
+            result.errors.append(str(e))
+            return result
+
+        if read_warnings:
+            result.warnings.extend(read_warnings)
+
+        try:
+            exchange, report_type, _confidence, _indicators, detect_warnings = detect_exchange(
+                file_path, df, column_names
+            )
+        except Exception as e:
+            result.errors.append(f"Source detection failed: {e}")
+            return result
+
+        result.source = exchange
+        result.report_type = report_type
+        if detect_warnings:
+            result.warnings.extend(detect_warnings)
+
+        if exchange == "unknown":
+            result.errors.append("Unsupported or unknown source: unknown")
+            return result
+
+        try:
+            adapter_cls = get_adapter(exchange, report_type)
+            adapter = adapter_cls(timezone)
+        except AdapterNotFoundError as e:
+            result.errors.append(str(e))
+            return result
+        except Exception as e:
+            result.errors.append(f"Adapter initialization failed: {e}")
+            return result
+
+        working = df.copy()
+        for col in working.columns:
+            working[col] = working[col].apply(lambda x: "" if pd.isna(x) else str(x))
+        rows = working.to_dict(orient="records")
+
+        adapter_result = adapter.adapt(rows)
+        result.warnings.extend(adapter_result.warnings)
+        result.errors.extend(adapter_result.errors)
+        transactions = adapter_result.transactions
+        result.transactions = transactions
+        result.transaction_count = len(transactions)
+
+        if not transactions:
+            return result
+
+        dup_result = DuplicateDetector(self.timestamp_tolerance_seconds).detect(transactions)
+        transfer_result = TransferReconciler(self.timestamp_tolerance_seconds).reconcile(
+            transactions
+        )
+        convert_result = ConvertReconciler(self.timestamp_tolerance_seconds).reconcile(
+            transactions
+        )
+
+        result.duplicate_findings = dup_result
+        result.transfer_matches = transfer_result
+        result.convert_matches = convert_result
+        result.warnings.extend(convert_result.warnings)
+        result.comment_findings = self.comment_engine.process(transactions)
+        result.summary = self._build_summary(
+            transactions, dup_result, transfer_result, convert_result, result.comment_findings
+        )
+
+        if accounting_config is not None:
+            try:
+                engine = AccountingEngine(accounting_config)
+                unique_ids = None
+                if dup_result is not None:
+                    unique_ids = set(dup_result.unique_transaction_ids)
+                result.accounting_result = engine.process(
+                    transactions=transactions,
+                    transfer_result=transfer_result,
+                    convert_result=convert_result,
+                    comment_result=result.comment_findings,
+                    unique_transaction_ids=unique_ids,
+                )
+            except Exception as e:
+                result.errors.append(f"Accounting failed: {e}")
+
+        return result
+
+    def process_csv_content(
+        self,
+        content: str,
+        timezone: Optional[str] = None,
+        filename: str = "binance_export.csv",
+        accounting_config: Optional[AccountingConfiguration] = None,
+    ) -> ProcessingResult:
+        prefix = filename.replace(".csv", "_").replace(" ", "_")[:40]
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            suffix=".csv",
+            delete=False,
+            newline="",
+            encoding="utf-8",
+            prefix=prefix,
+        ) as tmp:
+            tmp.write(content)
+            path = tmp.name
+        try:
+            return self.process_file(path, timezone, accounting_config=accounting_config)
+        finally:
+            try:
+                os.remove(path)
+            except OSError:
+                pass
+
+    def _build_summary(self, transactions, dup_result, transfer_result, convert_result, comment_result=None) -> ProcessingSummary:
+        s = ProcessingSummary()
+        s.total_transactions = len(transactions)
+        s.duplicate_groups = len(dup_result.groups)
+        s.exact_duplicates = sum(
+            1
+            for g in dup_result.groups
+            if g.classification == DuplicateClassification.EXACT_DUPLICATE
+        )
+        s.probable_duplicates = sum(
+            1
+            for g in dup_result.groups
+            if g.classification == DuplicateClassification.PROBABLE_DUPLICATE
+        )
+        s.possible_duplicates = sum(
+            1
+            for g in dup_result.groups
+            if g.classification == DuplicateClassification.POSSIBLE_DUPLICATE
+        )
+        s.internal_transfers = len(transfer_result.matches)
+        s.convert_events = len(convert_result.matches)
+        s.unresolved_convert_rows = len(convert_result.unresolved_leg_ids)
+        for tx in transactions:
+            t = tx.transaction_type
+            if t == TransactionType.UNKNOWN:
+                s.unknown_transactions += 1
+            elif t == TransactionType.FEE:
+                s.fees += 1
+            elif t == TransactionType.DEPOSIT:
+                s.deposits += 1
+            elif t == TransactionType.WITHDRAWAL:
+                s.withdrawals += 1
+            elif t == TransactionType.TRANSFER:
+                s.transfers += 1
+            elif t == TransactionType.TRADE:
+                s.trades += 1
+            elif t == TransactionType.SWAP:
+                s.swaps += 1
+        if comment_result:
+            s.comments = len(comment_result.comments)
+        return s

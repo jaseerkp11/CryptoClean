@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: cryptclean-api
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python run.py
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.14.6
+      - key: HOST
+        value: 0.0.0.0
+      - key: WORKERS
+        value: 1
+      - key: LOG_LEVEL
+        value: info
+      - key: CORS_ORIGINS
+        value: "*"
+      - key: ENVIRONMENT
+        value: production

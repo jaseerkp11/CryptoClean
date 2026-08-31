@@ -1,0 +1,15 @@
+User ID,Time,Account,Operation,Coin,Change,Remark
+REDACTED,2024-10-20 21:01:19,Spot,Deposit,SOL,+0.0215519,
+REDACTED,2024-10-20 21:01:19,Spot,Binance Convert,USDT,+3.42578053,
+REDACTED,2024-10-20 21:01:19,Spot,Binance Convert,SOL,-0.0215519,
+REDACTED,2024-10-20 21:02:00,Spot,Transfer Between Spot and UM Futures,USDT,-100.0,
+REDACTED,2024-10-20 21:03:00,UM Futures,Transfer Between UM Futures and Funding,USDT,-50.0,
+REDACTED,2024-10-20 21:04:00,Spot,Fee,BNB,-0.0001,TradeID - 14707925
+REDACTED,2024-10-20 21:05:00,Funding,Funding Fee,USDT,-0.5,
+REDACTED,2024-10-20 21:06:00,Spot,Realized Profit and Loss,USDT,+10.0,TradeID - 12345
+REDACTED,2024-10-20 21:07:00,Spot,P2P Trading,USDT,+100.0,P2P - 22775202417291345920
+REDACTED,2024-10-20 21:08:00,Spot,Crypto Box,BNB,+0.01,
+REDACTED,2024-10-20 21:09:00,Spot,Asset Recovery,BTC,+0.001,
+REDACTED,2024-10-20 21:10:00,Spot,Simple Earn Flexible Subscription,USDT,-100.0,
+REDACTED,2024-10-20 21:11:00,Spot,Insurance Fund Refund,USDT,+0.1,
+REDACTED,2024-10-20 21:12:00,Spot,Unknown Operation,XRP,+10.0,
