@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CryptoClean - Crypto Tax Reporting</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="app">
+        <!-- Navigation -->
+        <nav class="navbar" id="navbar">
+            <div class="nav-container">
+                <div class="nav-brand">
+                    <div class="logo">
+                        <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                            <rect width="32" height="32" rx="8" fill="#2563EB"/>
+                            <path d="M8 16L14 22L24 10" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </div>
+                    <span class="brand-text">CryptoClean</span>
+                </div>
+                <div class="nav-links" id="nav-links">
+                    <a href="#" class="nav-link" data-nav="home">Home</a>
+                    <a href="#" class="nav-link" data-nav="upload">Upload</a>
+                    <a href="#" class="nav-link" data-nav="results">Results</a>
+                </div>
+                <div class="nav-status" id="nav-status">
+                    <span class="status-indicator" id="api-status"></span>
+                    <span class="status-text" id="api-status-text">Checking...</span>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Landing Page -->
+            <section class="page active" id="page-landing">
+                <div class="hero">
+                    <div class="hero-content">
+                        <h1>Crypto Tax Reporting,<br><span class="highlight">Simplified</span></h1>
+                        <p class="hero-subtitle">Upload your exchange reports. Get accurate capital gains, income reports, and reconciliation in seconds.</p>
+                        <div class="hero-actions">
+                            <button class="btn btn-primary btn-lg" onclick="navigateTo('upload')">
+                                Get Started
+                                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                    <path d="M7.5 15L12.5 10L7.5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                            </button>
+                        </div>
+                        <div class="hero-trust">
+                            <div class="trust-item">
+                                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                    <path d="M10 1L13 7H19L14 11L16 17L10 13L4 17L6 11L1 7H7L10 1Z" fill="#2563EB"/>
+                                </svg>
+                                <span>Bank-grade security</span>
+                            </div>
+                            <div class="trust-item">
+                                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                    <path d="M10 1L13 7H19L14 11L16 17L10 13L4 17L6 11L1 7H7L10 1Z" fill="#2563EB"/>
+                                </svg>
+                                <span>Privacy first</span>
+                            </div>
+                            <div class="trust-item">
+                                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                    <path d="M10 1L13 7H19L14 11L16 17L10 13L4 17L6 11L1 7H7L10 1Z" fill="#2563EB"/>
+                                </svg>
+                                <span>Instant results</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="hero-visual">
+                        <div class="dashboard-preview">
+                            <div class="preview-header">
+                                <div class="preview-dots">
+                                    <span class="dot"></span>
+                                    <span class="dot"></span>
+                                    <span class="dot"></span>
+                                </div>
+                            </div>
+                            <div class="preview-content">
+                                <div class="preview-chart">
+                                    <div class="chart-bar" style="height: 40%"></div>
+                                    <div class="chart-bar" style="height: 65%"></div>
+                                    <div class="chart-bar" style="height: 45%"></div>
+                                    <div class="chart-bar" style="height: 80%"></div>
+                                    <div class="chart-bar" style="height: 55%"></div>
+                                    <div class="chart-bar" style="height: 70%"></div>
+                                    <div class="chart-bar" style="height: 90%"></div>
+                                </div>
+                                <div class="preview-stats">
+                                    <div class="preview-stat">
+                                        <span class="stat-label">Realized P&L</span>
+                                        <span class="stat-value positive">+$12,847</span>
+                                    </div>
+                                    <div class="preview-stat">
+                                        <span class="stat-label">Transactions</span>
+                                        <span class="stat-value">1,247</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="features">
+                    <h2>Everything you need for tax season</h2>
+                    <div class="features-grid">
+                        <div class="feature-card">
+                            <div class="feature-icon">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                                    <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="#2563EB" stroke-width="2"/>
+                                    <path d="M2 17L12 22L22 17" stroke="#2563EB" stroke-width="2"/>
+                                    <path d="M2 12L12 17L22 12" stroke="#2563EB" stroke-width="2"/>
+                                </svg>
+                            </div>
+                            <h3>Multi-Exchange Support</h3>
+                            <p>Binance and Coinbase reports supported out of the box. More coming soon.</p>
+                        </div>
+                        <div class="feature-card">
+                            <div class="feature-icon">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                                    <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke="#2563EB" stroke-width="2"/>
+                                    <path d="M12 6V12L16 14" stroke="#2563EB" stroke-width="2"/>
+                                </svg>
+                            </div>
+                            <h3>Real-Time Processing</h3>
+                            <p>Get results in seconds, not hours. Our engine processes thousands of transactions instantly.</p>
+                        </div>
+                        <div class="feature-card">
+                            <div class="feature-icon">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                                    <path d="M9 12L11 14L15 10" stroke="#2563EB" stroke-width="2"/>
+                                    <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke="#2563EB" stroke-width="2"/>
+                                </svg>
+                            </div>
+                            <h3>Accurate Reconciliation</h3>
+                            <p>Automatic detection of transfers, duplicates, and converts across your accounts.</p>
+                        </div>
+                        <div class="feature-card">
+                            <div class="feature-icon">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                                    <path d="M14 2H6C5.46957 2 4.96086 2.21071 4.58579 2.58579C4.21071 2.96086 4 3.46957 4 4V20C4 20.5304 4.21071 21.0391 4.58579 21.4142C4.96086 21.7893 5.46957 22 6 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V8L14 2Z" stroke="#2563EB" stroke-width="2"/>
+                                    <path d="M14 2V8H20" stroke="#2563EB" stroke-width="2"/>
+                                </svg>
+                            </div>
+                            <h3>Tax-Ready Reports</h3>
+                            <p>Generate comprehensive reports ready for your accountant or tax software.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="supported-exchanges">
+                    <h2>Supported Exchanges</h2>
+                    <div class="exchanges-grid">
+                        <div class="exchange-card">
+                            <div class="exchange-logo binance">B</div>
+                            <span class="exchange-name">Binance</span>
+                            <span class="exchange-reports">Transaction Record, Spot Trade History</span>
+                        </div>
+                        <div class="exchange-card">
+                            <div class="exchange-logo coinbase">C</div>
+                            <span class="exchange-name">Coinbase</span>
+                            <span class="exchange-reports">Transaction Record</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Upload Page -->
+            <section class="page" id="page-upload">
+                <div class="upload-container">
+                    <div class="upload-header">
+                        <h1>Upload Your Report</h1>
+                        <p>Upload a CSV file from Binance or Coinbase to get started</p>
+                    </div>
+
+                    <div class="upload-workspace">
+                        <div class="upload-zone" id="upload-zone">
+                            <input type="file" id="file-input" accept=".csv" hidden>
+                            <div class="upload-prompt" id="upload-prompt">
+                                <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+                                    <path d="M24 32V16M24 16L18 22M24 16L30 22" stroke="#94A3B8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M12 36H36" stroke="#94A3B8" stroke-width="2" stroke-linecap="round"/>
+                                    <rect x="4" y="4" width="40" height="40" rx="8" stroke="#E2E8F0" stroke-width="2" stroke-dasharray="8 4"/>
+                                </svg>
+                                <p class="upload-text">Drag & drop your CSV file here</p>
+                                <p class="upload-subtext">or <span class="upload-browse">browse</span> to choose a file</p>
+                                <p class="upload-formats">Supports Binance and Coinbase CSV exports</p>
+                            </div>
+                            <div class="upload-file-selected" id="upload-file-selected" style="display: none;">
+                                <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+                                    <path d="M28 4H12C10.9391 4 9.92172 4.42143 9.17157 5.17157C8.42143 5.92172 8 6.93913 8 8V40C8 41.0609 8.42143 42.0783 9.17157 42.8284C9.92172 43.5786 10.9391 44 12 44H36C37.0609 44 38.0783 43.5786 38.8284 42.8284C39.5786 42.0783 40 41.0609 40 40V16L28 4Z" stroke="#2563EB" stroke-width="2"/>
+                                    <path d="M28 4V16H40" stroke="#2563EB" stroke-width="2"/>
+                                </svg>
+                                <p class="file-name" id="selected-file-name"></p>
+                                <p class="file-size" id="selected-file-size"></p>
+                                <button class="btn btn-secondary btn-sm" onclick="resetUpload()">Change file</button>
+                            </div>
+                        </div>
+
+                        <div class="upload-options">
+                            <div class="option-group">
+                                <label class="option-label">Timezone</label>
+                                <select id="timezone-select" class="form-select">
+                                    <option value="UTC">UTC</option>
+                                    <option value="America/New_York">Eastern Time (ET)</option>
+                                    <option value="America/Chicago">Central Time (CT)</option>
+                                    <option value="America/Denver">Mountain Time (MT)</option>
+                                    <option value="America/Los_Angeles">Pacific Time (PT)</option>
+                                    <option value="Europe/London">London (GMT)</option>
+                                    <option value="Europe/Paris">Central European (CET)</option>
+                                    <option value="Asia/Tokyo">Japan (JST)</option>
+                                    <option value="Asia/Singapore">Singapore (SGT)</option>
+                                    <option value="Australia/Sydney">Sydney (AEST)</option>
+                                </select>
+                            </div>
+                            <div class="option-group">
+                                <label class="option-label">Processing Mode</label>
+                                <div class="radio-group">
+                                    <label class="radio-label">
+                                        <input type="radio" name="processing-mode" value="standard" checked>
+                                        <span class="radio-custom"></span>
+                                        <span class="radio-text">
+                                            <strong>Standard</strong>
+                                            <small>Transaction classification & reconciliation</small>
+                                        </span>
+                                    </label>
+                                    <label class="radio-label">
+                                        <input type="radio" name="processing-mode" value="accounting">
+                                        <span class="radio-custom"></span>
+                                        <span class="radio-text">
+                                            <strong>With Accounting</strong>
+                                            <small>Includes FIFO cost basis & P&L calculation</small>
+                                        </span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="upload-actions">
+                            <button class="btn btn-primary btn-lg" id="process-btn" onclick="processFile()" disabled>
+                                Process Report
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Processing Page -->
+            <section class="page" id="page-processing">
+                <div class="processing-container">
+                    <div class="processing-content">
+                        <div class="processing-animation">
+                            <div class="spinner"></div>
+                        </div>
+                        <h2 id="processing-title">Processing your report...</h2>
+                        <p id="processing-status">Analyzing transactions</p>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="progress-fill"></div>
+                        </div>
+                        <p class="processing-info" id="processing-info"></p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Results Page -->
+            <section class="page" id="page-results">
+                <div class="results-container">
+                    <!-- Results Header -->
+                    <div class="results-header">
+                        <div class="results-title">
+                            <h1>Results</h1>
+                            <span class="results-source" id="results-source"></span>
+                        </div>
+                        <div class="results-actions">
+                            <button class="btn btn-secondary" onclick="navigateTo('upload')">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                    <path d="M10 12L6 8L10 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                </svg>
+                                New Upload
+                            </button>
+                            <button class="btn btn-primary" onclick="exportResults()">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                    <path d="M14 10V12.6667C14 13.0203 13.8595 13.3594 13.6095 13.6095C13.3594 13.8595 13.0203 14 12.6667 14H3.33333C2.97971 14 2.64057 13.8595 2.39052 13.6095C2.14048 13.3594 2 13.0203 2 12.6667V10" stroke="currentColor" stroke-width="1.5"/>
+                                    <path d="M4.66667 6.66667L8 10L11.3333 6.66667" stroke="currentColor" stroke-width="1.5"/>
+                                    <path d="M8 10V2" stroke="currentColor" stroke-width="1.5"/>
+                                </svg>
+                                Export CSV
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Summary Cards -->
+                    <div class="summary-cards" id="summary-cards">
+                        <div class="summary-card">
+                            <span class="card-label">Total Transactions</span>
+                            <span class="card-value" id="stat-total">0</span>
+                        </div>
+                        <div class="summary-card">
+                            <span class="card-label">Trades</span>
+                            <span class="card-value" id="stat-trades">0</span>
+                        </div>
+                        <div class="summary-card">
+                            <span class="card-label">Transfers</span>
+                            <span class="card-value" id="stat-transfers">0</span>
+                        </div>
+                        <div class="summary-card">
+                            <span class="card-label">Deposits</span>
+                            <span class="card-value" id="stat-deposits">0</span>
+                        </div>
+                        <div class="summary-card">
+                            <span class="card-label">Withdrawals</span>
+                            <span class="card-value" id="stat-withdrawals">0</span>
+                        </div>
+                        <div class="summary-card">
+                            <span class="card-label">Fees</span>
+                            <span class="card-value" id="stat-fees">0</span>
+                        </div>
+                    </div>
+
+                    <!-- Realized P&L Card -->
+                    <div class="pnl-card" id="pnl-card">
+                        <div class="pnl-header">
+                            <h3>Realized Profit & Loss</h3>
+                            <span class="pnl-badge" id="pnl-badge">FIFO</span>
+                        </div>
+                        <div class="pnl-content">
+                            <div class="pnl-total">
+                                <span class="pnl-label">Total Realized P&L</span>
+                                <span class="pnl-value" id="pnl-total">--</span>
+                            </div>
+                            <div class="pnl-breakdown" id="pnl-breakdown"></div>
+                        </div>
+                    </div>
+
+                    <!-- Tabs -->
+                    <div class="results-tabs">
+                        <button class="tab active" data-tab="transactions">Transactions</button>
+                        <button class="tab" data-tab="reconciliation">Reconciliation</button>
+                        <button class="tab" data-tab="accounting">Accounting</button>
+                        <button class="tab" data-tab="warnings">Warnings & Data Quality</button>
+                    </div>
+
+                    <!-- Tab Content -->
+                    <div class="tab-content">
+                        <!-- Transactions Tab -->
+                        <div class="tab-pane active" id="tab-transactions">
+                            <div class="table-container">
+                                <div class="table-toolbar">
+                                    <div class="table-search">
+                                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                            <circle cx="6.5" cy="6.5" r="5.5" stroke="currentColor" stroke-width="1.5"/>
+                                            <path d="M10.5 10.5L14 14" stroke="currentColor" stroke-width="1.5"/>
+                                        </svg>
+                                        <input type="text" id="transaction-search" placeholder="Search transactions..." class="search-input">
+                                    </div>
+                                    <div class="table-filters">
+                                        <select id="type-filter" class="form-select form-select-sm">
+                                            <option value="">All Types</option>
+                                            <option value="TRADE">Trades</option>
+                                            <option value="TRANSFER">Transfers</option>
+                                            <option value="DEPOSIT">Deposits</option>
+                                            <option value="WITHDRAWAL">Withdrawals</option>
+                                            <option value="FEE">Fees</option>
+                                            <option value="SWAP">Swaps</option>
+                                            <option value="REWARD">Rewards</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="table-wrapper">
+                                    <table class="data-table" id="transactions-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Date</th>
+                                                <th>Type</th>
+                                                <th>Side</th>
+                                                <th>Asset</th>
+                                                <th>Quantity</th>
+                                                <th>Price</th>
+                                                <th>Value</th>
+                                                <th>Fee</th>
+                                                <th>Wallet</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="transactions-body"></tbody>
+                                    </table>
+                                </div>
+                                <div class="table-pagination">
+                                    <span class="pagination-info" id="pagination-info">Showing 0 transactions</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Reconciliation Tab -->
+                        <div class="tab-pane" id="tab-reconciliation">
+                            <div class="reconciliation-sections">
+                                <!-- Transfers -->
+                                <div class="recon-section">
+                                    <div class="recon-header">
+                                        <h3>Internal Transfers</h3>
+                                        <span class="recon-count" id="transfer-count">0 matched</span>
+                                    </div>
+                                    <div class="recon-content" id="transfers-content">
+                                        <p class="empty-state">No internal transfers detected</p>
+                                    </div>
+                                </div>
+
+                                <!-- Duplicates -->
+                                <div class="recon-section">
+                                    <div class="recon-header">
+                                        <h3>Duplicate Detection</h3>
+                                        <span class="recon-count" id="duplicate-count">0 found</span>
+                                    </div>
+                                    <div class="recon-content" id="duplicates-content">
+                                        <p class="empty-state">No duplicates detected</p>
+                                    </div>
+                                </div>
+
+                                <!-- Converts -->
+                                <div class="recon-section">
+                                    <div class="recon-header">
+                                        <h3>Convert Events</h3>
+                                        <span class="recon-count" id="convert-count">0 found</span>
+                                    </div>
+                                    <div class="recon-content" id="converts-content">
+                                        <p class="empty-state">No convert events detected</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Accounting Tab -->
+                        <div class="tab-pane" id="tab-accounting">
+                            <div class="accounting-sections">
+                                <div class="accounting-summary" id="accounting-summary">
+                                    <div class="summary-card">
+                                        <span class="card-label">Total Events</span>
+                                        <span class="card-value" id="acct-events">0</span>
+                                    </div>
+                                    <div class="summary-card">
+                                        <span class="card-label">Acquisitions</span>
+                                        <span class="card-value" id="acct-acquisitions">0</span>
+                                    </div>
+                                    <div class="summary-card">
+                                        <span class="card-label">Disposals</span>
+                                        <span class="card-value" id="acct-disposals">0</span>
+                                    </div>
+                                    <div class="summary-card">
+                                        <span class="card-label">Lots Created</span>
+                                        <span class="card-value" id="acct-lots">0</span>
+                                    </div>
+                                </div>
+                                <div class="table-container">
+                                    <h4>Accounting Events</h4>
+                                    <div class="table-wrapper">
+                                        <table class="data-table" id="accounting-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Date</th>
+                                                    <th>Type</th>
+                                                    <th>Asset</th>
+                                                    <th>Quantity</th>
+                                                    <th>Cost Basis</th>
+                                                    <th>Proceeds</th>
+                                                    <th>Realized P&L</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="accounting-body"></tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Warnings Tab -->
+                        <div class="tab-pane" id="tab-warnings">
+                            <div class="warnings-sections">
+                                <div class="warnings-section">
+                                    <div class="warnings-header">
+                                        <h3>Processing Warnings</h3>
+                                        <span class="warning-count" id="warning-count">0</span>
+                                    </div>
+                                    <div class="warnings-list" id="warnings-list"></div>
+                                </div>
+                                <div class="warnings-section">
+                                    <div class="warnings-header">
+                                        <h3>Data Quality Issues</h3>
+                                        <span class="warning-count" id="quality-count">0</span>
+                                    </div>
+                                    <div class="warnings-list" id="quality-list"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <div class="footer-content">
+                <span>&copy; 2026 CryptoClean. All rights reserved.</span>
+                <span class="footer-status" id="footer-status"></span>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <script src="js/api.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
