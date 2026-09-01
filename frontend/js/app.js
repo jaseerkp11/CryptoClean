@@ -1,6 +1,6 @@
 /**
  * CryptoClean Frontend Application
- * Premium Fintech SaaS - M037 Redesign
+ * Premium Fintech SaaS - Functional Finalization
  */
 
 // State
@@ -11,7 +11,8 @@ const state = {
     timezone: 'UTC',
     results: null,
     apiOnline: false,
-    activeTab: 'transactions'
+    activeTab: 'transactions',
+    selectedPlan: null
 };
 
 // API
@@ -141,6 +142,25 @@ function navigateTo(page) {
     Object.values(elements.pages).forEach(p => p.classList.remove('active'));
     elements.pages[page]?.classList.add('active');
     window.scrollTo(0, 0);
+}
+
+// Plan Selection
+function selectPlan(plan) {
+    state.selectedPlan = plan;
+    navigateTo('upload');
+    updateUploadHeaderForPlan(plan);
+}
+
+function updateUploadHeaderForPlan(plan) {
+    const planNames = {
+        free: 'Free Report',
+        standard: 'Standard Report — $9',
+        complete: 'Complete Report — $19'
+    };
+    const uploadHeader = document.querySelector('.upload-header h1');
+    if (uploadHeader && plan) {
+        uploadHeader.textContent = `Upload Your Report — ${planNames[plan] || ''}`;
+    }
 }
 
 // Upload
@@ -519,6 +539,29 @@ function setupSearch() {
 
     searchInput?.addEventListener('input', filterTransactions);
     typeFilter?.addEventListener('change', filterTransactions);
+}
+
+// FAQ Accordion
+function toggleFaq(item) {
+    const answer = item.querySelector('.faq-answer');
+    const icon = item.querySelector('.faq-question svg');
+    const isOpen = item.classList.contains('active');
+
+    // Close all
+    document.querySelectorAll('.faq-item').forEach(faq => {
+        faq.classList.remove('active');
+        const a = faq.querySelector('.faq-answer');
+        const i = faq.querySelector('.faq-question svg');
+        if (a) a.style.display = 'none';
+        if (i) i.style.transform = 'rotate(0deg)';
+    });
+
+    // Open clicked if it wasn't open
+    if (!isOpen) {
+        item.classList.add('active');
+        if (answer) answer.style.display = 'block';
+        if (icon) icon.style.transform = 'rotate(180deg)';
+    }
 }
 
 // Export

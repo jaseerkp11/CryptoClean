@@ -25,12 +25,11 @@
                 <div class="nav-links">
                     <a href="#features" class="nav-link" onclick="document.getElementById('features').scrollIntoView({behavior:'smooth'}); return false;">Product</a>
                     <a href="#how-it-works" class="nav-link" onclick="document.getElementById('how-it-works').scrollIntoView({behavior:'smooth'}); return false;">How It Works</a>
-                    <a href="#" class="nav-link" onclick="navigateTo('pricing'); return false;">Pricing</a>
-                    <a href="#" class="nav-link" onclick="navigateTo('security'); return false;">Security</a>
-                    <a href="#" class="nav-link" onclick="navigateTo('faq'); return false;">FAQ</a>
+                    <a href="#pricing" class="nav-link" onclick="document.getElementById('pricing').scrollIntoView({behavior:'smooth'}); return false;">Pricing</a>
+                    <a href="#security" class="nav-link" onclick="document.getElementById('security').scrollIntoView({behavior:'smooth'}); return false;">Security</a>
+                    <a href="#faq" class="nav-link" onclick="document.getElementById('faq').scrollIntoView({behavior:'smooth'}); return false;">FAQ</a>
                 </div>
                 <div class="nav-actions">
-                    <button class="btn btn-ghost" onclick="navigateTo('upload')">Sign In</button>
                     <button class="btn btn-primary" onclick="navigateTo('upload')">Upload Report</button>
                 </div>
                 <button class="nav-mobile-toggle" id="mobile-toggle" onclick="toggleMobile()">
@@ -40,9 +39,9 @@
             <div class="nav-mobile" id="nav-mobile">
                 <a href="#features" class="mobile-link" onclick="document.getElementById('features').scrollIntoView({behavior:'smooth'}); toggleMobile(); return false;">Product</a>
                 <a href="#how-it-works" class="mobile-link" onclick="document.getElementById('how-it-works').scrollIntoView({behavior:'smooth'}); toggleMobile(); return false;">How It Works</a>
-                <a href="#" class="mobile-link" onclick="navigateTo('pricing'); toggleMobile(); return false;">Pricing</a>
-                <a href="#" class="mobile-link" onclick="navigateTo('security'); toggleMobile(); return false;">Security</a>
-                <a href="#" class="mobile-link" onclick="navigateTo('faq'); toggleMobile(); return false;">FAQ</a>
+                <a href="#pricing" class="mobile-link" onclick="document.getElementById('pricing').scrollIntoView({behavior:'smooth'}); toggleMobile(); return false;">Pricing</a>
+                <a href="#security" class="mobile-link" onclick="document.getElementById('security').scrollIntoView({behavior:'smooth'}); toggleMobile(); return false;">Security</a>
+                <a href="#faq" class="mobile-link" onclick="document.getElementById('faq').scrollIntoView({behavior:'smooth'}); toggleMobile(); return false;">FAQ</a>
                 <button class="btn btn-primary btn-block" onclick="navigateTo('upload'); toggleMobile();">Upload Report</button>
             </div>
         </nav>
@@ -280,12 +279,79 @@
                     </div>
                 </div>
 
+                <!-- Pricing -->
+                <div class="section section-alt" id="pricing">
+                    <div class="section-header">
+                        <span class="section-tag">Pricing</span>
+                        <h2 class="section-title">Simple pricing. Pay only for what you need.</h2>
+                        <p class="section-desc">Choose the report package that fits your crypto tax needs. Start with a free report or unlock more detailed analysis when you need it.</p>
+                    </div>
+                    <div class="pricing-cards">
+                        <div class="pricing-card">
+                            <h3>Free Report</h3>
+                            <p class="price">$0</p>
+                            <span class="plan-label">Free</span>
+                            <p class="plan-desc">A quick report for basic transaction visibility.</p>
+                            <ul>
+                                <li>Up to 100 transactions</li>
+                                <li>Basic transaction summary</li>
+                                <li>Basic P&L summary</li>
+                                <li>Binance CSV support</li>
+                                <li>Coinbase CSV support</li>
+                                <li>CSV export</li>
+                            </ul>
+                            <button class="btn btn-secondary btn-block" onclick="selectPlan('free')">Get Free Report</button>
+                        </div>
+                        <div class="pricing-card popular">
+                            <div class="popular-badge">Most Popular</div>
+                            <h3>Standard Report</h3>
+                            <p class="price">$9</p>
+                            <span class="plan-label">One-time payment</span>
+                            <p class="plan-desc">For investors who need a complete transaction and P&L report.</p>
+                            <ul>
+                                <li>Up to 5,000 transactions</li>
+                                <li>Full transaction analysis</li>
+                                <li>Realized P&L</li>
+                                <li>Cost-basis calculation</li>
+                                <li>Internal transfer detection</li>
+                                <li>Duplicate detection</li>
+                                <li>Binance support</li>
+                                <li>Coinbase support</li>
+                                <li>CSV export</li>
+                            </ul>
+                            <button class="btn btn-primary btn-block" onclick="selectPlan('standard')">Choose Standard</button>
+                        </div>
+                        <div class="pricing-card">
+                            <h3>Complete Report</h3>
+                            <p class="price">$19</p>
+                            <span class="plan-label">One-time payment</span>
+                            <p class="plan-desc">The complete reconciliation and tax-ready report for serious crypto users.</p>
+                            <ul>
+                                <li>Unlimited transactions</li>
+                                <li>Full transaction reconciliation</li>
+                                <li>Realized P&L</li>
+                                <li>Unrealized P&L</li>
+                                <li>Cost-basis calculation</li>
+                                <li>Internal transfer matching</li>
+                                <li>Duplicate detection</li>
+                                <li>Conversion/event classification</li>
+                                <li>Income summary</li>
+                                <li>Capital gains summary</li>
+                                <li>Binance support</li>
+                                <li>Coinbase support</li>
+                                <li>Tax-ready CSV export</li>
+                            </ul>
+                            <button class="btn btn-secondary btn-block" onclick="selectPlan('complete')">Choose Complete</button>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- CTA -->
                 <div class="cta-section">
                     <div class="cta-content">
                         <h2>Ready to simplify your crypto taxes?</h2>
                         <p>Upload your first report and see results in seconds.</p>
-                        <button class="btn btn-primary btn-xl" onclick="navigateTo('upload')">
+                        <button class="btn btn-primary btn-xl" onclick="selectPlan('free')">
                             Get Started Now
                             <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M7.5 15L12.5 10L7.5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
                         </button>
@@ -693,25 +759,68 @@
                         <p>Everything you need to know about CryptoClean.</p>
                     </div>
                     <div class="faq-list">
-                        <div class="faq-item">
-                            <h3>Which exchanges are supported?</h3>
-                            <p>We currently support Binance and Coinbase CSV exports. More exchanges will be added based on demand.</p>
+                        <div class="faq-item" onclick="toggleFaq(this)">
+                            <div class="faq-question">
+                                <h3>What exchanges does CryptoClean support?</h3>
+                                <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M6 8L10 12L14 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                            </div>
+                            <div class="faq-answer">
+                                <p>CryptoClean currently supports Binance and Coinbase CSV reports. We plan to add more exchanges based on demand.</p>
+                            </div>
                         </div>
-                        <div class="faq-item">
-                            <h3>Is my data stored?</h3>
-                            <p>No. Your files are processed in memory and are never stored or cached on our servers.</p>
+                        <div class="faq-item" onclick="toggleFaq(this)">
+                            <div class="faq-question">
+                                <h3>Are my files stored?</h3>
+                                <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M6 8L10 12L14 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                            </div>
+                            <div class="faq-answer">
+                                <p>Your files are processed in memory and are not persistently stored on our servers after processing is complete.</p>
+                            </div>
                         </div>
-                        <div class="faq-item">
-                            <h3>How accurate is the accounting?</h3>
-                            <p>Our FIFO cost basis engine is built with precision in mind, using auditable transaction matching and full reconciliation trails.</p>
+                        <div class="faq-item" onclick="toggleFaq(this)">
+                            <div class="faq-question">
+                                <h3>What reports can I generate?</h3>
+                                <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M6 8L10 12L14 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                            </div>
+                            <div class="faq-answer">
+                                <p>CryptoClean offers three report packages: Free Report ($0, up to 100 transactions), Standard Report ($9, up to 5,000 transactions with full P&L), and Complete Report ($19, unlimited transactions with full reconciliation and tax-ready export).</p>
+                            </div>
                         </div>
-                        <div class="faq-item">
-                            <h3>Can I export the results?</h3>
-                            <p>Yes. You can export your transaction analysis and accounting results as CSV files.</p>
+                        <div class="faq-item" onclick="toggleFaq(this)">
+                            <div class="faq-question">
+                                <h3>How does CryptoClean calculate gains?</h3>
+                                <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M6 8L10 12L14 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                            </div>
+                            <div class="faq-answer">
+                                <p>CryptoClean uses FIFO (First In, First Out) cost basis calculation. Each disposal is matched against the earliest available acquisition lot for the same asset, producing an auditable realized gain or loss.</p>
+                            </div>
                         </div>
-                        <div class="faq-item">
-                            <h3>What file formats are supported?</h3>
-                            <p>We accept CSV files from Binance (Transaction Record, Spot Trade History) and Coinbase (Transaction Record).</p>
+                        <div class="faq-item" onclick="toggleFaq(this)">
+                            <div class="faq-question">
+                                <h3>Can CryptoClean detect transfers?</h3>
+                                <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M6 8L10 12L14 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                            </div>
+                            <div class="faq-answer">
+                                <p>Yes. CryptoClean can match deposit and withdrawal pairs that share the same asset, quantity, and timestamp to identify internal wallet transfers and exclude them from taxable events.</p>
+                            </div>
+                        </div>
+                        <div class="faq-item" onclick="toggleFaq(this)">
+                            <div class="faq-question">
+                                <h3>Can I export my report?</h3>
+                                <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M6 8L10 12L14 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                            </div>
+                            <div class="faq-answer">
+                                <p>Yes. After processing, you can export your transaction analysis and accounting results as CSV files for use in your tax software or with your accountant.</p>
+                            </div>
+                        </div>
+                        <div class="faq-item" onclick="toggleFaq(this)">
+                            <div class="faq-question">
+                                <h3>Is CryptoClean a tax filing service?</h3>
+                                <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M6 8L10 12L14 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                            </div>
+                            <div class="faq-answer">
+                                <p>No. CryptoClean is a reporting and analysis tool. It helps you organize transaction data, calculate gains, and produce reports. It does not file tax returns on your behalf.</p>
+                            </div>
                         </div>
                     </div>
                 </div>
