@@ -15,12 +15,12 @@ class CoinbaseTransactionRecordAdapter(BaseAdapter):
     REQUIRED_COLUMNS = {"Timestamp", "Transaction Type", "Asset", "Quantity Transacted"}
 
     def __init__(self, timezone: Optional[str] = None):
-        if not timezone:
-            raise ValueError("Timezone must be explicitly provided.")
-        try:
-            self.timezone = ZoneInfo(timezone)
-        except Exception as exc:
-            raise ValueError(f"Invalid timezone: {timezone}") from exc
+        self.timezone = None
+        if timezone:
+            try:
+                self.timezone = ZoneInfo(timezone)
+            except Exception as exc:
+                raise ValueError(f"Invalid timezone: {timezone}") from exc
 
     def _validate_columns(self, rows: List[Dict[str, Any]]) -> Optional[str]:
         if not rows:
@@ -41,11 +41,13 @@ class CoinbaseTransactionRecordAdapter(BaseAdapter):
         ):
             try:
                 naive = datetime.strptime(cleaned, fmt)
-                if naive.tzinfo is None:
-                    return naive.replace(tzinfo=self.timezone)
-                return naive
             except ValueError:
                 continue
+            if naive.tzinfo is not None:
+                return naive
+            if self.timezone is not None:
+                return naive.replace(tzinfo=self.timezone)
+            return naive.replace(tzinfo=ZoneInfo("UTC"))
         raise ValueError(f"Invalid Coinbase Timestamp: {value}")
 
     def _parse_decimal(self, value: Any, field_name: str) -> Decimal:

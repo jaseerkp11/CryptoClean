@@ -219,9 +219,24 @@ def test_p2p_identifier_extraction():
     assert result.transactions[0].source_transaction_id == "22775202417291345920"
 
 
-def test_timezone_must_be_explicit():
-    with pytest.raises(ValueError, match="Timezone must be explicitly provided"):
-        BinanceTransactionRecordAdapter(None)
+def test_timezone_optional_for_timezone_aware_timestamps():
+    adapter = BinanceTransactionRecordAdapter(timezone=None)
+    rows = [
+        {"User ID": "REDACTED", "Time": "2024-10-20 21:01:19+05:00", "Account": "Spot", "Operation": "Deposit", "Coin": "SOL", "Change": "0.0215519", "Remark": ""}
+    ]
+    result = adapter.adapt(rows)
+    assert len(result.transactions) == 1
+    assert result.transactions[0].timestamp is not None
+
+
+def test_naive_timestamps_default_to_utc_when_timezone_omitted():
+    adapter = BinanceTransactionRecordAdapter(timezone=None)
+    rows = [
+        {"User ID": "REDACTED", "Time": "2024-10-20 21:01:19", "Account": "Spot", "Operation": "Deposit", "Coin": "SOL", "Change": "0.0215519", "Remark": ""}
+    ]
+    result = adapter.adapt(rows)
+    assert len(result.transactions) == 1
+    assert result.transactions[0].timestamp.tzinfo is not None
 
 
 def test_invalid_timezone_rejected():

@@ -96,11 +96,11 @@ def test_user_id_not_stored_in_metadata():
         assert "User ID" not in (tx.metadata or {})
 
 
-# 10. Missing timezone rejected
-def test_missing_timezone_rejected():
+# 10. Missing timezone defaults to UTC for naive timestamps
+def test_missing_timezone_defaults_to_utc():
     res = _pipeline().process_csv_content(BINANCE_CSV, None)
-    assert res.transaction_count == 0
-    assert any("Timezone" in e for e in res.errors)
+    assert res.transaction_count == 12
+    assert not res.errors
 
 
 # 11. Explicit timezone accepted
@@ -196,8 +196,10 @@ def test_api_process_missing_timezone():
     client = TestClient(app)
     files = {"file": ("binance_export.csv", io.BytesIO(BINANCE_CSV.encode("utf-8")), "text/csv")}
     response = client.post("/api/v1/process", files=files)
-    assert response.status_code == 400
-    assert "Timezone" in response.json()["detail"]
+    assert response.status_code == 200
+    data = response.json()
+    assert data["source"] == "binance"
+    assert data["transaction_count"] == 12
 
 
 def test_mixed_source_spot_and_transaction_record_isolation():
@@ -235,3 +237,58 @@ def test_coinbase_swap_in_summary():
     assert result.summary.swaps == 2
     assert result.summary.unknown_transactions == 0
     assert result.summary.trades == 0
+
+
+def test_timezone_aware_binance_timestamps_process_without_manual_timezone():
+    csv_content = "User ID,Time,Account,Operation,Coin,Change,Remark\n"
+    csv_content += "REDACTED,2022-01-15 12:00:00+05:00,Spot,Deposit,BTC,+0.01,\n"
+    csv_content += "REDACTED,2022-06-20 08:30:00+00:00,Spot,Trade,BTC,-0.01,TradeID - 1\n"
+    pipeline = _pipeline()
+    result = pipeline.process_csv_content(csv_content, None)
+    assert result.transaction_count == 2
+    assert result.source == "binance"
+    assert not result.errors
+
+
+def test_naive_binance_timestamps_default_to_utc():
+    csv_content = "User ID,Time,Account,Operation,Coin,Change,Remark\n"
+    csv_content += "REDACTED,2022-01-15 12:00:00,Spot,Deposit,BTC,+0.01,\n"
+    pipeline = _pipeline()
+    result = pipeline.process_csv_content(csv_content, None, plan="standard")
+    assert result.transaction_count == 1
+    assert result.source == "binance"
+    assert result.transactions[0].timestamp.tzinfo is not None
+
+
+def test_free_plan_enforces_100_transaction_limit():
+    rows = "\n".join([f"REDACTED,2024-01-01 12:00:00,Spot,Deposit,BTC,+0.01," for _ in range(101)])
+    csv_content = "User ID,Time,Account,Operation,Coin,Change,Remark\n" + rows
+    pipeline = _pipeline()
+    result = pipeline.process_csv_content(csv_content, "UTC", plan="free")
+    assert result.transaction_count == 0
+    assert any("100 transactions" in e for e in result.errors)
+
+
+def test_standard_plan_allows_up_to_5000_transactions():
+    rows = "\n".join([f"REDACTED,2024-01-01 12:00:00,Spot,Deposit,BTC,+0.01," for _ in range(10)])
+    csv_content = "User ID,Time,Account,Operation,Coin,Change,Remark\n" + rows
+    pipeline = _pipeline()
+    result = pipeline.process_csv_content(csv_content, "UTC", plan="standard")
+    assert result.transaction_count == 10
+
+
+def test_standard_plan_rejects_over_limit():
+    rows = "\n".join([f"REDACTED,2024-01-01 12:00:00,Spot,Deposit,BTC,+0.01," for _ in range(5001)])
+    csv_content = "User ID,Time,Account,Operation,Coin,Change,Remark\n" + rows
+    pipeline = _pipeline()
+    result = pipeline.process_csv_content(csv_content, "UTC", plan="standard")
+    assert result.transaction_count == 0
+    assert any("5000 transactions" in e for e in result.errors)
+
+
+def test_complete_plan_allows_large_files():
+    rows = "\n".join([f"REDACTED,2024-01-01 12:00:00,Spot,Deposit,BTC,+0.01," for _ in range(10)])
+    csv_content = "User ID,Time,Account,Operation,Coin,Change,Remark\n" + rows
+    pipeline = _pipeline()
+    result = pipeline.process_csv_content(csv_content, "UTC", plan="complete")
+    assert result.transaction_count == 10

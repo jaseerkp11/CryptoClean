@@ -13,6 +13,7 @@ from backend.ingestion.detector import detect_exchange
 from backend.accounting.configuration import AccountingConfiguration
 from backend.processing.pipeline import ProcessingPipeline
 from backend.processing.models import ProcessingResult
+from backend.plans import get_plan_config, Plan, PLAN_CONFIG
 
 logging.basicConfig(
     level=getattr(logging, os.getenv("LOG_LEVEL", "INFO").upper()),
@@ -88,6 +89,11 @@ async def health():
     return {"status": "ok", "service": "CryptoClean", "version": "0.1.0"}
 
 
+@app.get("/api/v1/plans")
+async def list_plans():
+    return {"plans": PLAN_CONFIG}
+
+
 @app.post("/api/v1/ingest", response_model=IngestResponse)
 async def ingest_csv(request: Request, file: UploadFile = File(...)):
     if not file.filename:
@@ -153,7 +159,7 @@ async def ingest_csv(request: Request, file: UploadFile = File(...)):
 
 @app.post("/api/v1/process", response_model=ProcessingResult)
 async def process_csv_endpoint(
-    request: Request, file: UploadFile = File(...), timezone: str = None, accounting: bool = False
+    request: Request, file: UploadFile = File(...), timezone: Optional[str] = None, accounting: bool = False, plan: str = Plan.FREE
 ):
     if not file.filename:
         raise HTTPException(status_code=400, detail="Filename is required.")
@@ -165,11 +171,6 @@ async def process_csv_endpoint(
         raise HTTPException(status_code=400, detail="Invalid filename.")
 
     _validate_content_type(file.content_type)
-
-    if not timezone:
-        raise HTTPException(
-            status_code=400, detail="Timezone must be explicitly provided."
-        )
 
     content_length = request.headers.get("content-length")
     if content_length and int(content_length) > MAX_FILE_SIZE_BYTES:
@@ -191,19 +192,13 @@ async def process_csv_endpoint(
                 tmp.write(chunk)
             tmp_path = tmp.name
 
-        accounting_config = AccountingConfiguration() if accounting else None
-        result = pipeline.process_file(tmp_path, timezone, accounting_config=accounting_config)
-        if result.errors:
-            if result.transaction_count == 0:
-                raise HTTPException(status_code=400, detail="; ".join(result.errors))
-            return JSONResponse(
-                status_code=207,
-                content=result.model_dump(mode="json"),
-            )
-        return result
+        accounting_config = AccountingConfiguration() if (accounting or get_plan_config(plan).get("accounting")) else None
+        result = pipeline.process_file(tmp_path, timezone, accounting_config=accounting_config, plan=plan)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    except Exception:
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail="Internal server error.")
     finally:
         if tmp_path and os.path.exists(tmp_path):
@@ -211,11 +206,20 @@ async def process_csv_endpoint(
                 os.remove(tmp_path)
             except OSError:
                 pass
+
+    if result.errors:
+        if result.transaction_count == 0:
+            raise HTTPException(status_code=400, detail="; ".join(result.errors))
+        return JSONResponse(
+            status_code=207,
+            content=result.model_dump(mode="json"),
+        )
+    return result
 
 
 @app.post("/api/v1/account")
 async def account_csv_endpoint(
-    request: Request, file: UploadFile = File(...), timezone: str = None
+    request: Request, file: UploadFile = File(...), timezone: Optional[str] = None, plan: str = Plan.COMPLETE
 ):
     if not file.filename:
         raise HTTPException(status_code=400, detail="Filename is required.")
@@ -227,11 +231,6 @@ async def account_csv_endpoint(
         raise HTTPException(status_code=400, detail="Invalid filename.")
 
     _validate_content_type(file.content_type)
-
-    if not timezone:
-        raise HTTPException(
-            status_code=400, detail="Timezone must be explicitly provided."
-        )
 
     content_length = request.headers.get("content-length")
     if content_length and int(content_length) > MAX_FILE_SIZE_BYTES:
@@ -253,18 +252,12 @@ async def account_csv_endpoint(
                 tmp.write(chunk)
             tmp_path = tmp.name
 
-        result = pipeline.process_file(tmp_path, timezone, accounting_config=AccountingConfiguration())
-        if result.errors:
-            if result.transaction_count == 0:
-                raise HTTPException(status_code=400, detail="; ".join(result.errors))
-            return JSONResponse(
-                status_code=207,
-                content=result.model_dump(mode="json"),
-            )
-        return result
+        result = pipeline.process_file(tmp_path, timezone, accounting_config=AccountingConfiguration(), plan=plan)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    except Exception:
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail="Internal server error.")
     finally:
         if tmp_path and os.path.exists(tmp_path):
@@ -272,6 +265,15 @@ async def account_csv_endpoint(
                 os.remove(tmp_path)
             except OSError:
                 pass
+
+    if result.errors:
+        if result.transaction_count == 0:
+            raise HTTPException(status_code=400, detail="; ".join(result.errors))
+        return JSONResponse(
+            status_code=207,
+            content=result.model_dump(mode="json"),
+        )
+    return result
 
 
 if __name__ == "__main__":

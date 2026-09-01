@@ -16,12 +16,12 @@ class BinanceTransactionRecordAdapter(BaseAdapter):
     REQUIRED_COLUMNS = {"User ID", "Time", "Account", "Operation", "Coin", "Change", "Remark"}
 
     def __init__(self, timezone: Optional[str] = None):
-        if not timezone:
-            raise ValueError("Timezone must be explicitly provided.")
-        try:
-            self.timezone = ZoneInfo(timezone)
-        except Exception as exc:
-            raise ValueError(f"Invalid timezone: {timezone}") from exc
+        self.timezone = None
+        if timezone:
+            try:
+                self.timezone = ZoneInfo(timezone)
+            except Exception as exc:
+                raise ValueError(f"Invalid timezone: {timezone}") from exc
 
     def _validate_columns(self, rows: List[Dict[str, Any]]) -> Optional[str]:
         if not rows:
@@ -33,11 +33,20 @@ class BinanceTransactionRecordAdapter(BaseAdapter):
         return None
 
     def _parse_timestamp(self, time_str: str) -> datetime:
+        cleaned = time_str.strip()
         try:
-            naive = datetime.strptime(time_str.strip(), "%Y-%m-%d %H:%M:%S")
-            return naive.replace(tzinfo=self.timezone)
+            parsed = datetime.fromisoformat(cleaned)
+            if parsed.tzinfo is not None:
+                return parsed
+        except ValueError:
+            pass
+        try:
+            naive = datetime.strptime(cleaned, "%Y-%m-%d %H:%M:%S")
         except ValueError as exc:
             raise ValueError(f"Invalid Binance timestamp: {time_str}") from exc
+        if self.timezone is not None:
+            return naive.replace(tzinfo=self.timezone)
+        return naive.replace(tzinfo=ZoneInfo("UTC"))
 
     def _parse_change(self, change_str: str) -> Decimal:
         try:

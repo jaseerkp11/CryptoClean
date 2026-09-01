@@ -20,6 +20,7 @@ from backend.reconciliation.converts import ConvertReconciler
 from backend.models.transaction import TransactionType
 from backend.processing.comments import CommentEngine
 from backend.processing.models import ProcessingResult, ProcessingSummary
+from backend.plans import get_plan_config, Plan
 
 
 class ProcessingPipeline:
@@ -30,13 +31,14 @@ class ProcessingPipeline:
         self.comment_engine = CommentEngine()
 
     def process_file(
-        self, file_path: str, timezone: Optional[str] = None, accounting_config: Optional[AccountingConfiguration] = None
+        self,
+        file_path: str,
+        timezone: Optional[str] = None,
+        accounting_config: Optional[AccountingConfiguration] = None,
+        plan: str = Plan.FREE,
     ) -> ProcessingResult:
         result = ProcessingResult()
-
-        if not timezone:
-            result.errors.append("Timezone must be explicitly provided.")
-            return result
+        plan_config = get_plan_config(plan)
 
         try:
             df, _row_count, _col_count, column_names, read_warnings = read_csv_safely(
@@ -88,6 +90,17 @@ class ProcessingPipeline:
         result.transactions = transactions
         result.transaction_count = len(transactions)
 
+        plan_limit = plan_config.get("limit")
+        if plan_limit is not None and len(transactions) > plan_limit:
+            result.errors.append(
+                f"This file contains {len(transactions)} transactions. "
+                f"The {plan_config['name']} supports up to {plan_limit} transactions. "
+                f"Choose a higher plan to process this file."
+            )
+            result.transactions = []
+            result.transaction_count = 0
+            return result
+
         if not transactions:
             return result
 
@@ -108,9 +121,10 @@ class ProcessingPipeline:
             transactions, dup_result, transfer_result, convert_result, result.comment_findings
         )
 
-        if accounting_config is not None:
+        effective_accounting = accounting_config is not None or bool(plan_config.get("accounting"))
+        if effective_accounting:
             try:
-                engine = AccountingEngine(accounting_config)
+                engine = AccountingEngine(accounting_config or AccountingConfiguration())
                 unique_ids = None
                 if dup_result is not None:
                     unique_ids = set(dup_result.unique_transaction_ids)
@@ -132,6 +146,7 @@ class ProcessingPipeline:
         timezone: Optional[str] = None,
         filename: str = "binance_export.csv",
         accounting_config: Optional[AccountingConfiguration] = None,
+        plan: str = Plan.FREE,
     ) -> ProcessingResult:
         prefix = filename.replace(".csv", "_").replace(" ", "_")[:40]
         with tempfile.NamedTemporaryFile(
@@ -145,7 +160,7 @@ class ProcessingPipeline:
             tmp.write(content)
             path = tmp.name
         try:
-            return self.process_file(path, timezone, accounting_config=accounting_config)
+            return self.process_file(path, timezone, accounting_config=accounting_config, plan=plan)
         finally:
             try:
                 os.remove(path)

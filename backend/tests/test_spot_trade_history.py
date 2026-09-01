@@ -351,10 +351,21 @@ def test_duplicate_import_stability():
     assert result.transactions[0].transaction_id == result.transactions[1].transaction_id
 
 
-# 15. timezone requirement
-def test_timezone_required():
-    with pytest.raises(ValueError, match="Timezone must be explicitly provided"):
-        BinanceSpotTradeHistoryAdapter(timezone=None)
+# 15. naive timestamps default to UTC when timezone omitted
+def test_naive_timestamps_default_to_utc():
+    adapter = BinanceSpotTradeHistoryAdapter(timezone=None)
+    rows = [
+        {"Date(UTC)": "2024-01-01 12:00:00", "Pair": "BTC/USDT", "Type": "Buy", "Order Price": "30000", "Amount": "0.01"}
+    ]
+    result = adapter.adapt(rows)
+    assert len(result.transactions) == 1
+    assert result.transactions[0].timestamp.tzinfo is not None
+
+
+# 16. explicit timezone accepted
+def test_explicit_timezone_accepted():
+    adapter = BinanceSpotTradeHistoryAdapter(timezone="UTC")
+    assert adapter.timezone is not None
 
 
 # 16. explicit timezone accepted

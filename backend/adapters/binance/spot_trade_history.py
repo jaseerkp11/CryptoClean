@@ -49,12 +49,30 @@ class BinanceSpotTradeHistoryAdapter(BaseAdapter):
     )
 
     def __init__(self, timezone: Optional[str] = None):
-        if not timezone:
-            raise ValueError("Timezone must be explicitly provided.")
+        self.timezone = None
+        if timezone:
+            try:
+                self.timezone = ZoneInfo(timezone)
+            except Exception as exc:
+                raise ValueError(f"Invalid timezone: {timezone}") from exc
+
+    def _parse_timestamp(self, time_str: str) -> datetime:
+        cleaned = time_str.strip()
         try:
-            self.timezone = ZoneInfo(timezone)
-        except Exception as exc:
-            raise ValueError(f"Invalid timezone: {timezone}") from exc
+            parsed = datetime.fromisoformat(cleaned)
+            if parsed.tzinfo is not None:
+                return parsed
+        except ValueError:
+            pass
+        for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M:%S.%f", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%dT%H:%M:%S.%f"):
+            try:
+                naive = datetime.strptime(cleaned, fmt)
+            except ValueError:
+                continue
+            if self.timezone is not None:
+                return naive.replace(tzinfo=self.timezone)
+            return naive.replace(tzinfo=ZoneInfo("UTC"))
+        raise ValueError(f"Invalid Binance Spot Trade History timestamp: {time_str}")
 
     def _resolve_column(self, row: Dict[str, Any], canonical: str) -> Optional[str]:
         lowered_row = {str(k).lower(): str(k) for k in row.keys()}
@@ -74,15 +92,6 @@ class BinanceSpotTradeHistoryAdapter(BaseAdapter):
             if not self._resolve_column(rows[0], canonical):
                 return f"Missing required column for {canonical}."
         return None
-
-    def _parse_timestamp(self, time_str: str) -> datetime:
-        for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M:%S.%f", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%dT%H:%M:%S.%f"):
-            try:
-                naive = datetime.strptime(time_str.strip(), fmt)
-                return naive.replace(tzinfo=self.timezone)
-            except ValueError:
-                continue
-        raise ValueError(f"Invalid Binance Spot Trade History timestamp: {time_str}")
 
     def _parse_decimal(self, value: Any, field_name: str) -> Decimal:
         if value is None or (isinstance(value, str) and not value.strip()):
