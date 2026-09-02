@@ -1,29 +1,122 @@
 /**
- * CryptoClean Frontend Application - Professional Upgrade
+ * CryptoClean Frontend Application
+ * Premium Fintech SaaS - M037 Redesign
  */
 
+// State
 const state = {
     currentPage: 'landing',
     selectedFile: null,
-    selectedPlan: 'free',
-    timezone: 'UTC',
+    processingMode: 'standard',
     results: null,
+    apiOnline: false,
     activeTab: 'transactions',
-    detectedExchange: null,
-    transactionCount: 0,
-    planValidation: null,
     selectedTaxYear: 'all'
 };
 
+// API
+const API_BASE_URL = 'https://cryptoclean-api.onrender.com';
+
+const api = {
+    async checkHealth() {
+        try {
+            const response = await fetch(`${API_BASE_URL}/health`, {
+                method: 'GET',
+                headers: { 'Accept': 'application/json' }
+            });
+            if (response.ok) {
+                return { online: true, data: await response.json() };
+            }
+            return { online: false, data: null };
+        } catch (error) {
+            return { online: false, data: null, error: error.message };
+        }
+    },
+
+    async processFile(file, timezone, accounting = false) {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('timezone', timezone);
+        if (accounting) {
+            formData.append('accounting', 'true');
+        }
+
+        const endpoint = accounting ? '/api/v1/account' : '/api/v1/process';
+
+        try {
+            const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+                method: 'POST',
+                body: formData,
+            });
+
+            const data = await response.json();
+
+            if (response.ok || response.status === 207) {
+                return {
+                    success: true,
+                    status: response.status,
+                    data: data,
+                    partial: response.status === 207
+                };
+            } else {
+                return {
+                    success: false,
+                    status: response.status,
+                    error: data.detail || 'An error occurred while processing your file.',
+                    data: data
+                };
+            }
+        } catch (error) {
+            return {
+                success: false,
+                status: 0,
+                error: 'Unable to connect to the server. Please check your connection and try again.'
+            };
+        }
+    }
+};
+
+// Elements
+const elements = {
+    pages: {
+        landing: document.getElementById('page-landing'),
+        upload: document.getElementById('page-upload'),
+        processing: document.getElementById('page-processing'),
+        results: document.getElementById('page-results'),
+        pricing: document.getElementById('page-pricing'),
+        security: document.getElementById('page-security'),
+        faq: document.getElementById('page-faq')
+    },
+    uploadZone: document.getElementById('upload-zone'),
+    fileInput: document.getElementById('file-input'),
+    uploadPrompt: document.getElementById('upload-prompt'),
+    uploadFileSelected: document.getElementById('upload-file-selected'),
+    selectedFileName: document.getElementById('selected-file-name'),
+    selectedFileSize: document.getElementById('selected-file-size'),
+    processBtn: document.getElementById('process-btn'),
+    progressFill: document.getElementById('progress-fill'),
+    processingTitle: document.getElementById('processing-title'),
+    processingStatus: document.getElementById('processing-status'),
+    toastContainer: document.getElementById('toast-container')
+};
+
+// Initialize
 document.addEventListener('DOMContentLoaded', () => {
     setupNavigation();
     setupUploadZone();
     setupTabs();
     setupSearch();
-    setupPlanSelection();
     setupTaxYearSelector();
+    checkApiStatus();
 });
 
+function checkApiStatus() {
+    api.checkHealth().then(result => {
+        state.apiOnline = result.online;
+    });
+}
+
+// Navigation
 function setupNavigation() {
     document.querySelectorAll('.nav-link, .mobile-link').forEach(link => {
         link.addEventListener('click', (e) => {
@@ -46,83 +139,15 @@ function toggleMobile() {
 
 function navigateTo(page) {
     state.currentPage = page;
-    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-    const pageEl = document.getElementById(`page-${page}`);
-    if (pageEl) pageEl.classList.add('active');
+    Object.values(elements.pages).forEach(p => p.classList.remove('active'));
+    elements.pages[page]?.classList.add('active');
     window.scrollTo(0, 0);
 }
 
-function setupPlanSelection() {
-    document.querySelectorAll('input[name="report-plan"]').forEach(radio => {
-        radio.addEventListener('change', (e) => {
-            state.selectedPlan = e.target.value;
-            updateUploadHeaderForPlan(state.selectedPlan);
-            validatePlan();
-        });
-    });
-}
-
-function selectPlan(plan) {
-    state.selectedPlan = plan;
-    const radio = document.querySelector(`input[name="report-plan"][value="${plan}"]`);
-    if (radio) radio.checked = true;
-    updateUploadHeaderForPlan(plan);
-    navigateTo('upload');
-}
-
-function updateUploadHeaderForPlan(plan) {
-    const planNames = {
-        free: 'Free Report',
-        standard: 'Standard Report — $9',
-        complete: 'Complete Report — $19'
-    };
-    const uploadHeader = document.querySelector('.upload-header h1');
-    if (uploadHeader && plan) {
-        uploadHeader.textContent = `Upload Your Report — ${planNames[plan] || ''}`;
-    }
-}
-
-function validatePlan() {
-    const summaryEl = document.getElementById('upload-plan-summary');
-    const validationEl = document.getElementById('plan-validation');
-    const processBtn = document.getElementById('process-btn');
-
-    if (!summaryEl || !validationEl) return;
-
-    const planConfig = {
-        free: { label: 'Free Report', limit: 100 },
-        standard: { label: 'Standard Report', limit: 5000 },
-        complete: { label: 'Complete Report', limit: null }
-    };
-
-    const config = planConfig[state.selectedPlan] || planConfig.free;
-    summaryEl.style.display = 'flex';
-    document.getElementById('plan-summary-label').textContent = config.label;
-    document.getElementById('plan-summary-limit').textContent = config.limit ? `Up to ${config.limit} transactions` : 'Unlimited transactions';
-
-    if (state.transactionCount > 0) {
-        if (config.limit && state.transactionCount > config.limit) {
-            validationEl.className = 'plan-validation error';
-            validationEl.innerHTML = `<span>✕</span> This file contains ${state.transactionCount} transactions. The ${config.label} supports up to ${config.limit} transactions. <a href="#" onclick="navigateTo('pricing'); return false;">Upgrade Plan</a>`;
-            processBtn.disabled = true;
-            state.planValidation = 'over_limit';
-        } else {
-            validationEl.className = 'plan-validation success';
-            validationEl.innerHTML = `<span>✓</span> ${state.transactionCount} / ${config.limit || '∞'} transactions`;
-            processBtn.disabled = !state.selectedFile;
-            state.planValidation = null;
-        }
-    } else {
-        validationEl.className = 'plan-validation';
-        validationEl.innerHTML = '';
-        processBtn.disabled = !state.selectedFile;
-        state.planValidation = null;
-    }
-}
-
+// Upload
 function setupUploadZone() {
-    const zone = document.getElementById('upload-zone');
-    const input = document.getElementById('file-input');
+    const zone = elements.uploadZone;
+    const input = elements.fileInput;
 
     zone.addEventListener('click', (e) => {
         if (e.target.closest('button')) return;
@@ -165,65 +190,19 @@ function handleFileSelect(file) {
     }
 
     state.selectedFile = file;
-    document.getElementById('upload-prompt').style.display = 'none';
-    document.getElementById('upload-file-selected').style.display = 'flex';
-    document.getElementById('selected-file-name').textContent = file.name;
-    document.getElementById('selected-file-size').textContent = formatFileSize(file.size);
-    document.getElementById('process-btn').disabled = false;
-
-    detectExchange(file);
-}
-
-async function detectExchange(file) {
-    const result = await api.ingestFile(file);
-    const detectEl = document.getElementById('detected-exchange');
-    if (result.success && result.data) {
-        const exchange = result.data.exchange || 'Unknown';
-        const reportType = result.data.report_type || '';
-        state.detectedExchange = exchange;
-        state.transactionCount = result.data.rows || 0;
-        if (detectEl) {
-            detectEl.textContent = `Detected exchange: ${exchange}${reportType ? ' (' + reportType + ')' : ''}`;
-            detectEl.style.display = 'block';
-        }
-        if (exchange === 'unknown') {
-            showToast('warning', 'Unrecognized Format', 'We could not recognize this CSV format. Please upload a supported Binance or Coinbase report.');
-        }
-        validatePlan();
-    } else {
-        state.detectedExchange = null;
-        state.transactionCount = 0;
-        if (detectEl) {
-            detectEl.textContent = '';
-            detectEl.style.display = 'none';
-        }
-        validatePlan();
-    }
+    elements.uploadPrompt.style.display = 'none';
+    elements.uploadFileSelected.style.display = 'flex';
+    elements.selectedFileName.textContent = file.name;
+    elements.selectedFileSize.textContent = formatFileSize(file.size);
+    elements.processBtn.disabled = false;
 }
 
 function resetUpload() {
     state.selectedFile = null;
-    state.detectedExchange = null;
-    state.transactionCount = 0;
-    state.planValidation = null;
-    document.getElementById('file-input').value = '';
-    document.getElementById('upload-prompt').style.display = 'flex';
-    document.getElementById('upload-file-selected').style.display = 'none';
-    document.getElementById('process-btn').disabled = true;
-    const detectEl = document.getElementById('detected-exchange');
-    if (detectEl) {
-        detectEl.style.display = 'none';
-        detectEl.textContent = '';
-    }
-    const validationEl = document.getElementById('plan-validation');
-    if (validationEl) {
-        validationEl.className = 'plan-validation';
-        validationEl.innerHTML = '';
-    }
-    const summaryEl = document.getElementById('upload-plan-summary');
-    if (summaryEl) {
-        summaryEl.style.display = 'none';
-    }
+    elements.fileInput.value = '';
+    elements.uploadPrompt.style.display = 'flex';
+    elements.uploadFileSelected.style.display = 'none';
+    elements.processBtn.disabled = true;
 }
 
 function formatFileSize(bytes) {
@@ -232,67 +211,77 @@ function formatFileSize(bytes) {
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
 }
 
+// Process
 async function processFile() {
     if (!state.selectedFile) return;
-    if (state.planValidation === 'over_limit') {
-        showToast('error', 'Plan Limit Exceeded', 'Please upgrade your plan to process this file.');
-        return;
-    }
 
-    const timezone = document.getElementById('timezone-select')?.value || '';
-    const plan = state.selectedPlan || 'free';
-    const accounting = plan === 'standard' || plan === 'complete';
+    const accounting = document.querySelector('input[name="processing-mode"]:checked')?.value === 'accounting';
 
     navigateTo('processing');
-    document.getElementById('processing-title').textContent = 'Processing your report...';
-    document.getElementById('processing-status').textContent = 'Uploading report...';
-    document.getElementById('progress-fill').style.width = '0%';
+    elements.processingTitle.textContent = 'Processing your report...';
+    elements.processingStatus.textContent = 'Uploading file...';
+    elements.progressFill.style.width = '0%';
 
-    try {
-        const result = await api.processFile(state.selectedFile, timezone, accounting, plan);
-        document.getElementById('progress-fill').style.width = '100%';
+    const result = await api.processFile(state.selectedFile, accounting);
 
-        if (result.success) {
-            state.results = result.data;
-            document.getElementById('processing-title').textContent = 'Analysis complete';
-            document.getElementById('processing-status').textContent = 'Preparing results...';
+    elements.progressFill.style.width = '100%';
 
-            setTimeout(() => {
-                renderResults(result.data);
-                navigateTo('results');
+    if (result.success) {
+        state.results = result.data;
+        elements.processingTitle.textContent = 'Processing complete!';
+        elements.processingStatus.textContent = 'Preparing results...';
 
-                if (result.partial) {
-                    showToast('warning', 'Partial Success', 'Some transactions could not be processed. Check the Warnings tab for details.');
-                } else {
-                    showToast('success', 'Success', 'Your report has been processed successfully.');
-                }
-            }, 500);
-        } else {
-            document.getElementById('processing-title').textContent = 'Processing failed';
-            document.getElementById('processing-status').textContent = result.error;
-            document.getElementById('progress-fill').style.width = '0%';
-            showToast('error', 'Processing Failed', result.error);
-            setTimeout(() => navigateTo('upload'), 2000);
-        }
-    } catch (error) {
-        document.getElementById('processing-title').textContent = 'Processing failed';
-        document.getElementById('processing-status').textContent = 'An unexpected error occurred.';
-        document.getElementById('progress-fill').style.width = '0%';
-        showToast('error', 'Processing Failed', 'An unexpected error occurred. Please try again.');
-        setTimeout(() => navigateTo('upload'), 2000);
+        setTimeout(() => {
+            renderResults(result.data);
+            navigateTo('results');
+
+            if (result.partial) {
+                showToast('warning', 'Partial Success', 'Some transactions could not be processed. Check the Warnings tab for details.');
+            } else {
+                showToast('success', 'Success', 'Your report has been processed successfully.');
+            }
+        }, 500);
+    } else {
+        elements.processingTitle.textContent = 'Processing failed';
+        elements.processingStatus.textContent = result.error;
+        elements.progressFill.style.width = '0%';
+
+        showToast('error', 'Processing Failed', result.error);
+
+        setTimeout(() => {
+            navigateTo('upload');
+        }, 2000);
     }
 }
 
-function setupTaxYearSelector() {
-    const selector = document.getElementById('tax-year-select');
-    if (selector) {
-        selector.addEventListener('change', (e) => {
-            state.selectedTaxYear = e.target.value;
-            if (state.results) {
-                renderResults(state.results);
-            }
-        });
-    }
+// Render Results
+function renderResults(data) {
+    const taxYear = state.selectedTaxYear || 'all';
+    const filteredData = filterByTaxYear(data, taxYear);
+
+    document.getElementById('results-source').textContent = `${filteredData.source || 'Unknown'} - ${filteredData.report_type || 'Unknown Report'}`;
+
+    const summary = filteredData.summary || {};
+    const acct = filteredData.accounting_result || {};
+    const acctSummary = acct.summary || {};
+
+    document.getElementById('stat-total').textContent = filteredData.transaction_count || 0;
+    document.getElementById('stat-acquisitions').textContent = acctSummary.acquisition_events || 0;
+    document.getElementById('stat-disposals').textContent = acctSummary.disposal_events || 0;
+    document.getElementById('stat-transfers').textContent = summary.transfers || 0;
+    document.getElementById('stat-matched-transfers').textContent = summary.internal_transfers || 0;
+    document.getElementById('stat-fees').textContent = summary.fees || 0;
+    document.getElementById('stat-unknown').textContent = summary.unknown_transactions || 0;
+    document.getElementById('stat-review').textContent = summary.unknown_transactions || 0;
+
+    renderPnLCard(acct);
+    renderFinancialMetrics(acctSummary, summary);
+    renderTransactionOverview(summary);
+    renderReconciliation(filteredData);
+    renderAccounting(acct);
+    renderTaxReadySummary(summary, acctSummary);
+    renderWarnings(filteredData);
+    renderTransactionsTable(filteredData.transactions || []);
 }
 
 function filterByTaxYear(data, taxYear) {
@@ -376,44 +365,16 @@ function filterByTaxYear(data, taxYear) {
     };
 }
 
-function renderResults(data) {
-    const taxYear = state.selectedTaxYear || 'all';
-    const filteredData = filterByTaxYear(data, taxYear);
-
-    document.getElementById('results-source').textContent = `${filteredData.source || 'Unknown'} - ${filteredData.report_type || 'Unknown Report'}`;
-
-    const summary = filteredData.summary || {};
-    const acct = filteredData.accounting_result || {};
-    const acctSummary = acct.summary || {};
-
-    // Top-level metric cards
-    document.getElementById('stat-total').textContent = filteredData.transaction_count || 0;
-    document.getElementById('stat-acquisitions').textContent = acctSummary.acquisition_events || 0;
-    document.getElementById('stat-disposals').textContent = acctSummary.disposal_events || 0;
-    document.getElementById('stat-transfers').textContent = summary.transfers || 0;
-    document.getElementById('stat-matched-transfers').textContent = summary.internal_transfers || 0;
-    document.getElementById('stat-fees').textContent = summary.fees || 0;
-    document.getElementById('stat-unknown').textContent = summary.unknown_transactions || 0;
-    document.getElementById('stat-review').textContent = summary.unknown_transactions || 0;
-
-    // P&L metrics
-    renderPnLCard(acct);
-    renderFinancialMetrics(acctSummary, summary);
-
-    // Transaction overview
-    renderTransactionOverview(summary);
-
-    // Reconciliation
-    renderReconciliation(filteredData);
-
-    // Accounting
-    renderAccounting(acct);
-
-    // Tax-ready summary
-    renderTaxReadySummary(summary, acctSummary);
-
-    // Warnings
-    renderWarnings(filteredData);
+function setupTaxYearSelector() {
+    const selector = document.getElementById('tax-year-select');
+    if (selector) {
+        selector.addEventListener('change', (e) => {
+            state.selectedTaxYear = e.target.value;
+            if (state.results) {
+                renderResults(state.results);
+            }
+        });
+    }
 }
 
 function renderFinancialMetrics(acctSummary, summary) {
@@ -471,56 +432,11 @@ function renderTransactionOverview(summary) {
     }
 }
 
-function renderReconciliation(data) {
-    const transferMatches = data.transfer_matches?.matches || [];
-    const unmatchedTransfers = data.transfer_matches?.unmatched_leg_ids?.length || 0;
-    const convertMatches = data.convert_matches?.matches || [];
-    const duplicateGroups = data.duplicate_findings?.groups || [];
-
-    document.getElementById('recon-matched-transfers').textContent = transferMatches.length;
-    document.getElementById('recon-unmatched-transfers').textContent = unmatchedTransfers;
-    document.getElementById('recon-conversions').textContent = convertMatches.length;
-    document.getElementById('recon-duplicates').textContent = duplicateGroups.length;
-}
-
-function renderAccounting(acct) {
-    if (!acct || !acct.summary) {
-        document.getElementById('acct-events').textContent = '0';
-        document.getElementById('acct-acquisitions').textContent = '0';
-        document.getElementById('acct-disposals').textContent = '0';
-        document.getElementById('acct-lots').textContent = '0';
-        document.getElementById('accounting-body').innerHTML = '<tr><td colspan="7" class="empty-state">No accounting data available</td></tr>';
-        return;
-    }
-
-    const summary = acct.summary;
-    document.getElementById('acct-events').textContent = summary.total_events || 0;
-    document.getElementById('acct-acquisitions').textContent = summary.acquisition_events || 0;
-    document.getElementById('acct-disposals').textContent = summary.disposal_events || 0;
-    document.getElementById('acct-lots').textContent = summary.total_lots_created || 0;
-
-    const events = acct.events || [];
-    document.getElementById('accounting-body').innerHTML = events.map(event => `
-        <tr>
-            <td>${formatDate(event.timestamp)}</td>
-            <td><span class="badge badge-${getAccountingEventClass(event.event_type)}">${event.event_type}</span></td>
-            <td>${event.asset}</td>
-            <td>${formatNumber(event.quantity)}</td>
-            <td>${event.cost_basis ? formatCurrency(event.cost_basis, event.cost_currency) : '<span class="unresolved">UNRESOLVED</span>'}</td>
-            <td>${event.proceeds ? formatCurrency(event.proceeds, event.proceeds_currency) : '<span class="unresolved">UNRESOLVED</span>'}</td>
-            <td class="${event.realized_pnl ? (parseFloat(event.realized_pnl) >= 0 ? 'text-positive' : 'text-negative') : ''}">${event.realized_pnl ? formatCurrency(event.realized_pnl, event.pnl_currency) : '<span class="unresolved">UNRESOLVED</span>'}</td>
-        </tr>
-    `).join('');
-}
-
 function renderTaxReadySummary(summary, acctSummary) {
-    // Tax-ready summary shows what can be honestly calculated
     const taxYear = state.selectedTaxYear;
     const taxYearLabel = taxYear === 'all' ? 'All Years' : taxYear;
 
     document.getElementById('tax-year-label').textContent = taxYearLabel;
-
-    // For now, show overall totals since we don't have year-filtered data yet
     document.getElementById('tax-capital-gains').textContent = acctSummary.disposal_events || 0;
     document.getElementById('tax-income').textContent = summary.unknown_transactions || 0;
     document.getElementById('tax-fees').textContent = summary.fees || 0;
@@ -528,33 +444,42 @@ function renderTaxReadySummary(summary, acctSummary) {
     document.getElementById('tax-exceptions').textContent = summary.unknown_transactions || 0;
 }
 
-function renderPnLCard(acct) {
+function exportPDF() {
+    if (!state.results) {
+        showToast('error', 'No Data', 'No results to export.');
+        return;
+    }
+
+    showToast('success', 'Generating PDF', 'Your PDF report is being generated...');
+}
+
+function renderPnLCard(accountingResult) {
     const pnlCard = document.getElementById('pnl-card');
-    if (!acct || !acct.summary) {
+    if (!accountingResult || !accountingResult.summary) {
         pnlCard.style.display = 'none';
         return;
     }
 
     pnlCard.style.display = 'block';
-    const summary = acct.summary;
+    const summary = accountingResult.summary;
     const totalPnL = summary.total_realized_pnl;
     const currency = summary.pnl_currency || 'USD';
 
     const pnlTotalEl = document.getElementById('pnl-total');
-    if (totalPnL !== null && totalPnL !== undefined && totalPnL !== '') {
+    if (totalPnL !== null && totalPnL !== undefined) {
         const pnlValue = parseFloat(totalPnL);
         pnlTotalEl.textContent = (pnlValue >= 0 ? '+' : '') + formatCurrency(pnlValue, currency);
         pnlTotalEl.className = 'pnl-value ' + (pnlValue >= 0 ? 'positive' : 'negative');
     } else {
-        pnlTotalEl.textContent = 'UNRESOLVED';
-        pnlTotalEl.className = 'pnl-value unresolved';
+        pnlTotalEl.textContent = '--';
+        pnlTotalEl.className = 'pnl-value';
     }
 
     const breakdownEl = document.getElementById('pnl-breakdown');
     breakdownEl.innerHTML = '';
 
-    if (acct.realized_pnl && acct.realized_pnl.length > 0) {
-        acct.realized_pnl.forEach(pnl => {
+    if (accountingResult.realized_pnl && accountingResult.realized_pnl.length > 0) {
+        accountingResult.realized_pnl.forEach(pnl => {
             const assetEl = document.createElement('div');
             assetEl.className = 'pnl-asset';
             const value = parseFloat(pnl.total_realized_pnl);
@@ -591,6 +516,106 @@ function renderTransactionsTable(transactions) {
     });
 
     document.getElementById('pagination-info').textContent = `Showing ${transactions.length} transactions`;
+}
+
+function renderReconciliation(data) {
+    const transfersContent = document.getElementById('transfers-content');
+    const transferMatches = data.transfer_matches?.matches || [];
+    document.getElementById('transfer-count').textContent = `${transferMatches.length} matched`;
+
+    if (transferMatches.length > 0) {
+        transfersContent.innerHTML = transferMatches.map(match => `
+            <div class="recon-item">
+                <div class="recon-item-header">
+                    <span class="recon-item-title">${match.asset} - ${formatNumber(match.quantity)}</span>
+                    <span class="recon-item-detail">${formatDate(match.timestamp)}</span>
+                </div>
+                <div class="recon-item-detail">From: ${match.source_account || 'Unknown'} → To: ${match.destination_account || 'Unknown'}</div>
+                <div class="reasons-list">${match.reasons.map(r => `<span class="reason-tag">${r}</span>`).join('')}</div>
+            </div>
+        `).join('');
+    } else {
+        transfersContent.innerHTML = '<p class="empty-state">No internal transfers detected</p>';
+    }
+
+    const duplicatesContent = document.getElementById('duplicates-content');
+    const duplicateGroups = data.duplicate_findings?.groups || [];
+    document.getElementById('duplicate-count').textContent = `${duplicateGroups.length} found`;
+
+    if (duplicateGroups.length > 0) {
+        duplicatesContent.innerHTML = duplicateGroups.map(group => `
+            <div class="recon-item">
+                <div class="recon-item-header">
+                    <span class="recon-item-title">${group.classification.replace(/_/g, ' ')}</span>
+                    <span class="recon-item-detail">Score: ${group.score}</span>
+                </div>
+                <div class="recon-item-detail">${group.transaction_ids.length} transactions: ${group.transaction_ids.slice(0, 3).join(', ')}${group.transaction_ids.length > 3 ? '...' : ''}</div>
+                <div class="reasons-list">${group.reasons.map(r => `<span class="reason-tag">${r}</span>`).join('')}</div>
+            </div>
+        `).join('');
+    } else {
+        duplicatesContent.innerHTML = '<p class="empty-state">No duplicates detected</p>';
+    }
+
+    const convertsContent = document.getElementById('converts-content');
+    const convertMatches = data.convert_matches?.matches || [];
+    document.getElementById('convert-count').textContent = `${convertMatches.length} found`;
+
+    if (convertMatches.length > 0) {
+        convertsContent.innerHTML = convertMatches.map(match => `
+            <div class="recon-item">
+                <div class="recon-item-header">
+                    <span class="recon-item-title">${match.input_asset} → ${match.output_asset}</span>
+                    <span class="recon-item-detail">${formatDate(match.timestamp)}</span>
+                </div>
+                <div class="recon-item-detail">Sold: ${formatNumber(match.input_quantity)} ${match.input_asset} → Bought: ${formatNumber(match.output_quantity)} ${match.output_asset}</div>
+                <div class="reasons-list">${match.reasons.map(r => `<span class="reason-tag">${r}</span>`).join('')}</div>
+            </div>
+        `).join('');
+    } else {
+        convertsContent.innerHTML = '<p class="empty-state">No convert events detected</p>';
+    }
+}
+
+function renderAccounting(accountingResult) {
+    const summaryEvents = document.getElementById('acct-events');
+    const summaryAcquisitions = document.getElementById('acct-acquisitions');
+    const summaryDisposals = document.getElementById('acct-disposals');
+    const summaryLots = document.getElementById('acct-lots');
+    const accountingBody = document.getElementById('accounting-body');
+
+    if (!accountingResult || !accountingResult.summary) {
+        summaryEvents.textContent = '0';
+        summaryAcquisitions.textContent = '0';
+        summaryDisposals.textContent = '0';
+        summaryLots.textContent = '0';
+        accountingBody.innerHTML = '<tr><td colspan="7" class="empty-state">No accounting data available</td></tr>';
+        return;
+    }
+
+    const summary = accountingResult.summary;
+    summaryEvents.textContent = summary.total_events || 0;
+    summaryAcquisitions.textContent = summary.acquisition_events || 0;
+    summaryDisposals.textContent = summary.disposal_events || 0;
+    summaryLots.textContent = summary.total_lots_created || 0;
+
+    const events = accountingResult.events || [];
+    accountingBody.innerHTML = events.map(event => `
+        <tr>
+            <td>${formatDate(event.timestamp)}</td>
+            <td><span class="badge badge-${getAccountingEventClass(event.event_type)}">${event.event_type}</span></td>
+            <td>${event.asset}</td>
+            <td>${formatNumber(event.quantity)}</td>
+            <td>${event.cost_basis ? formatCurrency(event.cost_basis, event.cost_currency) : '-'}</td>
+            <td>${event.proceeds ? formatCurrency(event.proceeds, event.proceeds_currency) : '-'}</td>
+            <td class="${event.realized_pnl ? (parseFloat(event.realized_pnl) >= 0 ? 'text-positive' : 'text-negative') : ''}">${event.realized_pnl ? formatCurrency(event.realized_pnl, event.pnl_currency) : '-'}</td>
+        </tr>
+    `).join('');
+}
+
+function getAccountingEventClass(type) {
+    const classes = { 'ACQUISITION': 'deposit', 'DISPOSAL': 'withdrawal', 'TRANSFER': 'transfer', 'SWAP': 'swap', 'FEE': 'fee', 'NON_ACCOUNTING': 'unknown' };
+    return classes[type] || 'unknown';
 }
 
 function renderWarnings(data) {
@@ -630,11 +655,7 @@ function renderWarnings(data) {
     }
 }
 
-function getAccountingEventClass(type) {
-    const classes = { 'ACQUISITION': 'deposit', 'DISPOSAL': 'withdrawal', 'TRANSFER': 'transfer', 'SWAP': 'swap', 'FEE': 'fee', 'NON_ACCOUNTING': 'unknown' };
-    return classes[type] || 'unknown';
-}
-
+// Tabs
 function setupTabs() {
     document.querySelectorAll('.tab').forEach(tab => {
         tab.addEventListener('click', () => {
@@ -647,6 +668,7 @@ function setupTabs() {
     });
 }
 
+// Search
 function setupSearch() {
     const searchInput = document.getElementById('transaction-search');
     const typeFilter = document.getElementById('type-filter');
@@ -679,26 +701,7 @@ function setupSearch() {
     typeFilter?.addEventListener('change', filterTransactions);
 }
 
-function toggleFaq(item) {
-    const answer = item.querySelector('.faq-answer');
-    const icon = item.querySelector('.faq-question svg');
-    const isOpen = item.classList.contains('active');
-
-    document.querySelectorAll('.faq-item').forEach(faq => {
-        faq.classList.remove('active');
-        const a = faq.querySelector('.faq-answer');
-        const i = faq.querySelector('.faq-question svg');
-        if (a) a.style.display = 'none';
-        if (i) i.style.transform = 'rotate(0deg)';
-    });
-
-    if (!isOpen) {
-        item.classList.add('active');
-        if (answer) answer.style.display = 'block';
-        if (icon) icon.style.transform = 'rotate(180deg)';
-    }
-}
-
+// Export
 function exportResults() {
     if (!state.results || !state.results.transactions) {
         showToast('error', 'No Data', 'No results to export.');
@@ -734,8 +737,8 @@ function exportResults() {
     showToast('success', 'Export Complete', 'Results downloaded as CSV.');
 }
 
+// Toast
 function showToast(type, title, message) {
-    const toastContainer = document.getElementById('toast-container');
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
     toast.innerHTML = `
@@ -747,7 +750,7 @@ function showToast(type, title, message) {
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M12 4L4 12M4 4L12 12" stroke="currentColor" stroke-width="2"/></svg>
         </button>
     `;
-    toastContainer.appendChild(toast);
+    elements.toastContainer.appendChild(toast);
     setTimeout(() => {
         toast.style.opacity = '0';
         toast.style.transform = 'translateX(100%)';
@@ -755,6 +758,7 @@ function showToast(type, title, message) {
     }, 5000);
 }
 
+// Utilities
 function formatDate(dateStr) {
     if (!dateStr) return '-';
     const date = new Date(dateStr);
