@@ -445,12 +445,38 @@ function renderTaxReadySummary(summary, acctSummary) {
 }
 
 function exportPDF() {
-    if (!state.results) {
+    if (!state.results || !state.selectedFile) {
         showToast('error', 'No Data', 'No results to export.');
         return;
     }
 
+    const taxYear = state.selectedTaxYear || 'all';
+    const formData = new FormData();
+    formData.append('file', state.selectedFile);
+    formData.append('tax_year', taxYear);
+    formData.append('plan', 'complete');
+
     showToast('success', 'Generating PDF', 'Your PDF report is being generated...');
+
+    fetch(`${API_BASE_URL}/api/v1/report/pdf`, {
+        method: 'POST',
+        body: formData,
+    }).then(response => {
+        if (response.ok) {
+            return response.blob();
+        }
+        throw new Error('Failed to generate PDF');
+    }).then(blob => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `KryptLedg_Report_${taxYear}.pdf`;
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast('success', 'Export Complete', 'PDF downloaded successfully.');
+    }).catch(error => {
+        showToast('error', 'Export Failed', error.message || 'Failed to generate PDF report.');
+    });
 }
 
 function renderPnLCard(accountingResult) {
