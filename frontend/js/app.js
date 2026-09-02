@@ -8,10 +8,10 @@ const state = {
     currentPage: 'landing',
     selectedFile: null,
     processingMode: 'standard',
+    timezone: 'UTC',
     results: null,
     apiOnline: false,
-    activeTab: 'transactions',
-    selectedTaxYear: 'all'
+    activeTab: 'transactions'
 };
 
 // API
@@ -106,7 +106,6 @@ document.addEventListener('DOMContentLoaded', () => {
     setupUploadZone();
     setupTabs();
     setupSearch();
-    setupTaxYearSelector();
     checkApiStatus();
 });
 
@@ -215,6 +214,7 @@ function formatFileSize(bytes) {
 async function processFile() {
     if (!state.selectedFile) return;
 
+    const timezone = document.getElementById('timezone-select')?.value || 'UTC';
     const accounting = document.querySelector('input[name="processing-mode"]:checked')?.value === 'accounting';
 
     navigateTo('processing');
@@ -222,7 +222,7 @@ async function processFile() {
     elements.processingStatus.textContent = 'Uploading file...';
     elements.progressFill.style.width = '0%';
 
-    const result = await api.processFile(state.selectedFile, accounting);
+    const result = await api.processFile(state.selectedFile, timezone, accounting);
 
     elements.progressFill.style.width = '100%';
 
@@ -256,227 +256,21 @@ async function processFile() {
 
 // Render Results
 function renderResults(data) {
-    const taxYear = state.selectedTaxYear || 'all';
-    const filteredData = filterByTaxYear(data, taxYear);
+    document.getElementById('results-source').textContent = `${data.source || 'Unknown'} - ${data.report_type || 'Unknown Report'}`;
 
-    document.getElementById('results-source').textContent = `${filteredData.source || 'Unknown'} - ${filteredData.report_type || 'Unknown Report'}`;
-
-    const summary = filteredData.summary || {};
-    const acct = filteredData.accounting_result || {};
-    const acctSummary = acct.summary || {};
-
-    document.getElementById('stat-total').textContent = filteredData.transaction_count || 0;
-    document.getElementById('stat-acquisitions').textContent = acctSummary.acquisition_events || 0;
-    document.getElementById('stat-disposals').textContent = acctSummary.disposal_events || 0;
+    const summary = data.summary || {};
+    document.getElementById('stat-total').textContent = data.transaction_count || 0;
+    document.getElementById('stat-trades').textContent = summary.trades || 0;
     document.getElementById('stat-transfers').textContent = summary.transfers || 0;
-    document.getElementById('stat-matched-transfers').textContent = summary.internal_transfers || 0;
+    document.getElementById('stat-deposits').textContent = summary.deposits || 0;
+    document.getElementById('stat-withdrawals').textContent = summary.withdrawals || 0;
     document.getElementById('stat-fees').textContent = summary.fees || 0;
-    document.getElementById('stat-unknown').textContent = summary.unknown_transactions || 0;
-    document.getElementById('stat-review').textContent = summary.unknown_transactions || 0;
 
-    renderPnLCard(acct);
-    renderFinancialMetrics(acctSummary, summary);
-    renderTransactionOverview(summary);
-    renderReconciliation(filteredData);
-    renderAccounting(acct);
-    renderTaxReadySummary(summary, acctSummary);
-    renderWarnings(filteredData);
-    renderTransactionsTable(filteredData.transactions || []);
-}
-
-function filterByTaxYear(data, taxYear) {
-    if (taxYear === 'all') return data;
-
-    const filteredTransactions = (data.transactions || []).filter(tx => {
-        if (!tx.timestamp) return false;
-        const year = new Date(tx.timestamp).getFullYear();
-        return year === parseInt(taxYear);
-    });
-
-    const filteredTxIds = new Set(filteredTransactions.map(tx => tx.transaction_id));
-
-    const filteredAccountingResult = data.accounting_result ? {
-        ...data.accounting_result,
-        events: (data.accounting_result.events || []).filter(e => 
-            e.source_transaction_ids && e.source_transaction_ids.some(id => filteredTxIds.has(id))
-        ),
-        lots: data.accounting_result.lots || [],
-        consumptions: data.accounting_result.consumptions || [],
-        realized_pnl: data.accounting_result.realized_pnl || [],
-        warnings: data.accounting_result.warnings || [],
-        errors: data.accounting_result.errors || [],
-    } : null;
-
-    const filteredTransferMatches = data.transfer_matches ? {
-        ...data.transfer_matches,
-        matches: (data.transfer_matches.matches || []).filter(m => 
-            filteredTxIds.has(m.source_transaction_id) && filteredTxIds.has(m.destination_transaction_id)
-        ),
-        unmatched_leg_ids: (data.transfer_matches.unmatched_leg_ids || []).filter(id => filteredTxIds.has(id)),
-    } : null;
-
-    const filteredConvertMatches = data.convert_matches ? {
-        ...data.convert_matches,
-        matches: (data.convert_matches.matches || []).filter(m =>
-            filteredTxIds.has(m.input_transaction_id) && filteredTxIds.has(m.output_transaction_id)
-        ),
-        unresolved_leg_ids: (data.convert_matches.unresolved_leg_ids || []).filter(id => filteredTxIds.has(id)),
-    } : null;
-
-    const filteredDuplicateFindings = data.duplicate_findings ? {
-        ...data.duplicate_findings,
-        groups: (data.duplicate_findings.groups || []).filter(g =>
-            g.transaction_ids && g.transaction_ids.some(id => filteredTxIds.has(id))
-        ),
-    } : null;
-
-    const recalculateSummary = (summary) => {
-        const txTypes = filteredTransactions.reduce((acc, tx) => {
-            acc[tx.transaction_type] = (acc[tx.transaction_type] || 0) + 1;
-            return acc;
-        }, {});
-
-        const acctEvents = filteredAccountingResult?.events || [];
-        const acctSummary = filteredAccountingResult?.summary || {};
-
-        return {
-            ...summary,
-            total_transactions: filteredTransactions.length,
-            trades: txTypes.TRADE || 0,
-            transfers: txTypes.TRANSFER || 0,
-            deposits: txTypes.DEPOSIT || 0,
-            withdrawals: txTypes.WITHDRAWAL || 0,
-            fees: txTypes.FEE || 0,
-            unknown_transactions: txTypes.UNKNOWN || 0,
-            swaps: txTypes.SWAP || 0,
-            non_accounting: acctEvents.filter(e => e.event_type === 'NON_ACCOUNTING').length,
-        };
-    };
-
-    return {
-        ...data,
-        transactions: filteredTransactions,
-        transaction_count: filteredTransactions.length,
-        summary: recalculateSummary(data.summary || {}),
-        accounting_result: filteredAccountingResult,
-        transfer_matches: filteredTransferMatches,
-        convert_matches: filteredConvertMatches,
-        duplicate_findings: filteredDuplicateFindings,
-    };
-}
-
-function setupTaxYearSelector() {
-    const selector = document.getElementById('tax-year-select');
-    if (selector) {
-        selector.addEventListener('change', (e) => {
-            state.selectedTaxYear = e.target.value;
-            if (state.results) {
-                renderResults(state.results);
-            }
-        });
-    }
-}
-
-function renderFinancialMetrics(acctSummary, summary) {
-    const metrics = {
-        'metric-proceeds': acctSummary.total_proceeds || summary.total_proceeds || null,
-        'metric-cost-basis': acctSummary.total_cost_basis || summary.total_cost_basis || null,
-        'metric-fees': acctSummary.total_fees || summary.total_fees || null,
-        'metric-gains': acctSummary.realized_gains || summary.realized_gains || null,
-        'metric-losses': acctSummary.realized_losses || summary.realized_losses || null,
-        'metric-net-pnl': acctSummary.total_realized_pnl || summary.net_realized_pnl || null,
-    };
-
-    for (const [id, value] of Object.entries(metrics)) {
-        const el = document.getElementById(id);
-        if (!el) continue;
-        if (value !== null && value !== undefined && value !== '') {
-            const num = parseFloat(value);
-            if (!isNaN(num)) {
-                el.textContent = formatCurrency(num, 'USD');
-                el.className = 'metric-value';
-            } else {
-                el.textContent = 'UNRESOLVED';
-                el.className = 'metric-value unresolved';
-            }
-        } else {
-            el.textContent = 'UNRESOLVED';
-            el.className = 'metric-value unresolved';
-        }
-    }
-}
-
-function renderTransactionOverview(summary) {
-    const items = [
-        { label: 'Deposits', value: summary.deposits || 0 },
-        { label: 'Withdrawals', value: summary.withdrawals || 0 },
-        { label: 'Trades', value: summary.trades || 0 },
-        { label: 'Transfers', value: summary.transfers || 0 },
-        { label: 'Fees', value: summary.fees || 0 },
-        { label: 'Rewards / Income', value: summary.unknown_transactions || 0 },
-        { label: 'Non-Accounting', value: summary.non_accounting || 0 },
-        { label: 'Duplicates', value: summary.duplicate_groups || 0 },
-        { label: 'Convert Events', value: summary.convert_events || 0 },
-        { label: 'Unresolved', value: summary.unresolved_convert_rows || 0 },
-        { label: 'Review Required', value: summary.unknown_transactions || 0 },
-    ];
-
-    const container = document.getElementById('transaction-overview-items');
-    if (container) {
-        container.innerHTML = items.map(item => `
-            <div class="overview-item">
-                <span class="overview-label">${item.label}</span>
-                <span class="overview-value">${item.value}</span>
-            </div>
-        `).join('');
-    }
-}
-
-function renderTaxReadySummary(summary, acctSummary) {
-    const taxYear = state.selectedTaxYear;
-    const taxYearLabel = taxYear === 'all' ? 'All Years' : taxYear;
-
-    document.getElementById('tax-year-label').textContent = taxYearLabel;
-    document.getElementById('tax-capital-gains').textContent = acctSummary.disposal_events || 0;
-    document.getElementById('tax-income').textContent = summary.unknown_transactions || 0;
-    document.getElementById('tax-fees').textContent = summary.fees || 0;
-    document.getElementById('tax-transfers').textContent = summary.transfers || 0;
-    document.getElementById('tax-exceptions').textContent = summary.unknown_transactions || 0;
-}
-
-function exportPDF() {
-    if (!state.results || !state.selectedFile) {
-        showToast('error', 'No Data', 'No results to export.');
-        return;
-    }
-
-    const taxYear = state.selectedTaxYear || 'all';
-    const formData = new FormData();
-    formData.append('file', state.selectedFile);
-    formData.append('tax_year', taxYear);
-    formData.append('plan', 'complete');
-
-    showToast('success', 'Generating PDF', 'Your PDF report is being generated...');
-
-    fetch(`${API_BASE_URL}/api/v1/report/pdf`, {
-        method: 'POST',
-        body: formData,
-    }).then(response => {
-        if (response.ok) {
-            return response.blob();
-        }
-        throw new Error('Failed to generate PDF');
-    }).then(blob => {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `KryptLedg_Report_${taxYear}.pdf`;
-        a.click();
-        URL.revokeObjectURL(url);
-        showToast('success', 'Export Complete', 'PDF downloaded successfully.');
-    }).catch(error => {
-        showToast('error', 'Export Failed', error.message || 'Failed to generate PDF report.');
-    });
+    renderPnLCard(data.accounting_result);
+    renderTransactionsTable(data.transactions || []);
+    renderReconciliation(data);
+    renderAccounting(data.accounting_result);
+    renderWarnings(data);
 }
 
 function renderPnLCard(accountingResult) {
