@@ -295,13 +295,19 @@ async function processFile() {
         elements.processingStatus.textContent = 'Preparing results...';
 
         setTimeout(() => {
-            renderResults(result.data);
-            navigateTo('results');
+            try {
+                renderResults(result.data);
+                navigateTo('results');
 
-            if (result.partial) {
-                showToast('warning', 'Partial Success', 'Some transactions could not be processed. Check the Warnings tab for details.');
-            } else {
-                showToast('success', 'Success', 'Your report has been processed successfully.');
+                if (result.partial) {
+                    showToast('warning', 'Partial Success', 'Some transactions could not be processed. Check the Warnings tab for details.');
+                } else {
+                    showToast('success', 'Success', 'Your report has been processed successfully.');
+                }
+            } catch (error) {
+                console.error('Results rendering failed:', error);
+                showToast('error', 'Display Error', 'Could not display results. Please try again or contact support.');
+                navigateTo('upload');
             }
         }, 500);
     } else {

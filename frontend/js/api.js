@@ -34,16 +34,19 @@ const api = {
     async processFile(file, timezone, accounting = false, plan = 'free', onProgress = null) {
         const formData = new FormData();
         formData.append('file', file);
-        formData.append('timezone', timezone || '');
-        formData.append('plan', plan);
-        if (accounting) {
-            formData.append('accounting', 'true');
-        }
 
         const endpoint = accounting ? '/api/v1/account' : '/api/v1/process';
+        const url = new URL(`${API_BASE_URL}${endpoint}`);
+        url.searchParams.set('plan', plan || 'free');
+        if (timezone) {
+            url.searchParams.set('timezone', timezone);
+        }
+        if (accounting) {
+            url.searchParams.set('accounting', 'true');
+        }
 
         try {
-            const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+            const response = await fetch(url.toString(), {
                 method: 'POST',
                 body: formData,
             });
