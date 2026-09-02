@@ -693,54 +693,6 @@
                 </div>
             </section>
 
-            <!-- Pricing Page -->
-            <section class="page" id="page-pricing">
-                <div class="pricing-page">
-                    <div class="pricing-header">
-                        <h1>Simple, transparent pricing</h1>
-                        <p>Start free. Upgrade when you need more.</p>
-                    </div>
-                    <div class="pricing-cards">
-                        <div class="pricing-card">
-                            <h3>Free</h3>
-                            <p class="price">$0<span>/month</span></p>
-                            <ul>
-                                <li>Up to 100 transactions</li>
-                                <li>Binance support</li>
-                                <li>Basic reconciliation</li>
-                                <li>CSV export</li>
-                            </ul>
-                            <button class="btn btn-primary btn-block" onclick="selectPlan('free')">Get Started</button>
-                        </div>
-                        <div class="pricing-card popular">
-                            <div class="popular-badge">Most Popular</div>
-                            <h3>Pro</h3>
-                            <p class="price">$29<span>/month</span></p>
-                            <ul>
-                                <li>Unlimited transactions</li>
-                                <li>Binance + Coinbase</li>
-                                <li>Full accounting (FIFO)</li>
-                                <li>Priority support</li>
-                                <li>API access</li>
-                            </ul>
-                            <button class="btn btn-primary btn-block" onclick="selectPlan('standard')">Start Free Trial</button>
-                        </div>
-                        <div class="pricing-card">
-                            <h3>Enterprise</h3>
-                            <p class="price">Custom</p>
-                            <ul>
-                                <li>Everything in Pro</li>
-                                <li>Custom integrations</li>
-                                <li>Dedicated support</li>
-                                <li>SLA guarantee</li>
-                                <li>On-premise option</li>
-                            </ul>
-                            <button class="btn btn-primary btn-block" onclick="selectPlan('complete')">Contact Sales</button>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
             <!-- Security Page -->
             <section class="page" id="page-security">
                 <div class="security-page">
@@ -858,7 +810,7 @@
                 </div>
                 <p class="footer-copy">&copy; 2026 CryptoClean. All rights reserved.</p>
                 <div class="footer-links">
-                    <a href="#" onclick="navigateTo('pricing'); return false;">Pricing</a>
+                    <a href="#pricing" onclick="document.getElementById('pricing').scrollIntoView({behavior:'smooth'}); return false;">Pricing</a>
                     <a href="#" onclick="navigateTo('security'); return false;">Security</a>
                     <a href="#" onclick="navigateTo('faq'); return false;">FAQ</a>
                 </div>

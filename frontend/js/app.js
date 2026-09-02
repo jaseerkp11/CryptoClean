@@ -24,7 +24,6 @@ const elements = {
         upload: document.getElementById('page-upload'),
         processing: document.getElementById('page-processing'),
         results: document.getElementById('page-results'),
-        pricing: document.getElementById('page-pricing'),
         security: document.getElementById('page-security'),
         faq: document.getElementById('page-faq')
     },
@@ -139,7 +138,7 @@ function validatePlan() {
     if (state.transactionCount > 0) {
         if (config.limit && state.transactionCount > config.limit) {
             validationEl.className = 'plan-validation error';
-            validationEl.innerHTML = `<span>✕</span> This file contains ${state.transactionCount} transactions. The ${config.label} supports up to ${config.limit} transactions. <a href="#" onclick="navigateTo('pricing'); return false;">Upgrade Plan</a>`;
+            validationEl.innerHTML = `<span>✕</span> This file contains ${state.transactionCount} transactions. The ${config.label} supports up to ${config.limit} transactions. <a href="#pricing" onclick="document.getElementById('pricing').scrollIntoView({behavior:'smooth'}); return false;">Upgrade Plan</a>`;
             processBtn.disabled = true;
             state.planValidation = 'over_limit';
         } else {
