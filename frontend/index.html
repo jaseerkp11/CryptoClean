@@ -311,13 +311,13 @@
                             <ul>
                                 <li>Up to 5,000 transactions</li>
                                 <li>Full transaction analysis</li>
-                                <li>Realized P&L (where data allows)</li>
-                                <li>FIFO cost-basis calculation</li>
+                                <li>Realized P&L</li>
+                                <li>Cost-basis calculation</li>
                                 <li>Internal transfer detection</li>
                                 <li>Duplicate detection</li>
-                                <li>Conversion handling</li>
-                                <li>Binance + Coinbase support</li>
-                                <li>Professional CSV export</li>
+                                <li>Binance support</li>
+                                <li>Coinbase support</li>
+                                <li>CSV export</li>
                             </ul>
                             <button class="btn btn-primary btn-block" onclick="selectPlan('standard')">Choose Standard</button>
                         </div>
@@ -329,18 +329,16 @@
                             <ul>
                                 <li>Unlimited transactions</li>
                                 <li>Full transaction reconciliation</li>
-                                <li>Realized P&L (where data allows)</li>
-                                <li>FIFO cost-basis calculation</li>
+                                <li>Realized P&L</li>
+                                <li>Unrealized P&L</li>
+                                <li>Cost-basis calculation</li>
                                 <li>Internal transfer matching</li>
                                 <li>Duplicate detection</li>
                                 <li>Conversion/event classification</li>
                                 <li>Income summary</li>
                                 <li>Capital gains summary</li>
-                                <li>Holdings report</li>
-                                <li>Complete audit trail</li>
-                                <li>Tax-year reporting</li>
-                                <li>PDF report</li>
-                                <li>Binance + Coinbase support</li>
+                                <li>Binance support</li>
+                                <li>Coinbase support</li>
                                 <li>Tax-ready CSV export</li>
                             </ul>
                             <button class="btn btn-primary btn-block" onclick="selectPlan('complete')">Choose Complete</button>
@@ -433,6 +431,23 @@
                                     </label>
                                 </div>
                             </div>
+                            <div class="option-group">
+                                <label class="option-label">Timezone</label>
+                                <p class="option-hint">Used to interpret transaction timestamps. Not needed if your CSV already contains timezone info.</p>
+                                <select id="timezone-select" class="form-select">
+                                    <option value="">Auto-detect from CSV</option>
+                                    <option value="UTC">UTC</option>
+                                    <option value="America/New_York">Eastern Time (ET)</option>
+                                    <option value="America/Chicago">Central Time (CT)</option>
+                                    <option value="America/Denver">Mountain Time (MT)</option>
+                                    <option value="America/Los_Angeles">Pacific Time (PT)</option>
+                                    <option value="Europe/London">London (GMT)</option>
+                                    <option value="Europe/Paris">Central European (CET)</option>
+                                    <option value="Asia/Tokyo">Japan (JST)</option>
+                                    <option value="Asia/Singapore">Singapore (SGT)</option>
+                                    <option value="Australia/Sydney">Sydney (AEST)</option>
+                                </select>
+                            </div>
                         </div>
 
                         <div class="upload-plan-summary" id="upload-plan-summary" style="display: none;">
@@ -483,7 +498,7 @@
                                 New Upload
                             </button>
                             <button class="btn btn-primary" onclick="exportResults()">
-                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M14 10V12.6667C14 13.0203 13.8595 13.6095 13.6095 13.6095C13.3594 13.8595 13.0203 14 12.6667 14H3.33333C2.97971 14 2.64057 13.8595 2.39052 13.6095C2.14048 13.3594 2.14048 13.3594 2 12.6667V10" stroke="currentColor" stroke-width="1.5"/><path d="M4.66667 6.66667L8 10L11.3333 6.66667" stroke="currentColor" stroke-width="1.5"/><path d="M8 10V2" stroke="currentColor" stroke-width="1.5"/></svg>
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M14 10V12.6667C14 13.0203 13.8595 13.3594 13.6095 13.6095C13.3594 13.8595 13.0203 14 12.6667 14H3.33333C2.97971 14 2.64057 13.8595 2.39052 13.6095C2.14048 13.3594 2 13.0203 2 12.6667V10" stroke="currentColor" stroke-width="1.5"/><path d="M4.66667 6.66667L8 10L11.3333 6.66667" stroke="currentColor" stroke-width="1.5"/><path d="M8 10V2" stroke="currentColor" stroke-width="1.5"/></svg>
                                 Export CSV
                             </button>
                         </div>
@@ -516,7 +531,6 @@
                         </div>
                     </div>
 
-                    <!-- P&L Card -->
                     <div class="pnl-card" id="pnl-card">
                         <div class="pnl-header">
                             <h3>Realized Profit & Loss</h3>
@@ -531,21 +545,14 @@
                         </div>
                     </div>
 
-                    <!-- Reconciliation -->
-                    <div class="section-card">
-                        <h3>Reconciliation</h3>
-                    </div>
-
-                    <!-- Results Tabs -->
                     <div class="results-tabs">
                         <button class="tab active" data-tab="transactions">Transactions</button>
                         <button class="tab" data-tab="reconciliation">Reconciliation</button>
                         <button class="tab" data-tab="accounting">Accounting</button>
-                        <button class="tab" data-tab="warnings">Warnings & Exceptions</button>
+                        <button class="tab" data-tab="warnings">Warnings</button>
                     </div>
 
                     <div class="tab-content">
-                        <!-- Transactions Tab -->
                         <div class="tab-pane active" id="tab-transactions">
                             <div class="table-container">
                                 <div class="table-toolbar">
@@ -590,7 +597,6 @@
                             </div>
                         </div>
 
-                        <!-- Reconciliation Tab -->
                         <div class="tab-pane" id="tab-reconciliation">
                             <div class="reconciliation-sections">
                                 <div class="recon-section">
@@ -623,7 +629,6 @@
                             </div>
                         </div>
 
-                        <!-- Accounting Tab -->
                         <div class="tab-pane" id="tab-accounting">
                             <div class="accounting-sections">
                                 <div class="accounting-summary">
@@ -666,7 +671,6 @@
                             </div>
                         </div>
 
-                        <!-- Warnings Tab -->
                         <div class="tab-pane" id="tab-warnings">
                             <div class="warnings-sections">
                                 <div class="warnings-section">

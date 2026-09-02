@@ -1,26 +1,63 @@
 /**
- * CryptoClean Frontend Application - Professional Upgrade
+ * CryptoClean Frontend Application
+ * Premium Fintech SaaS - Functional Finalization
  */
 
+// State
 const state = {
     currentPage: 'landing',
     selectedFile: null,
     selectedPlan: 'free',
+    timezone: 'UTC',
     results: null,
+    apiOnline: false,
     activeTab: 'transactions',
     detectedExchange: null,
     transactionCount: 0,
     planValidation: null
 };
 
+// Elements
+const elements = {
+    pages: {
+        landing: document.getElementById('page-landing'),
+        upload: document.getElementById('page-upload'),
+        processing: document.getElementById('page-processing'),
+        results: document.getElementById('page-results'),
+        pricing: document.getElementById('page-pricing'),
+        security: document.getElementById('page-security'),
+        faq: document.getElementById('page-faq')
+    },
+    uploadZone: document.getElementById('upload-zone'),
+    fileInput: document.getElementById('file-input'),
+    uploadPrompt: document.getElementById('upload-prompt'),
+    uploadFileSelected: document.getElementById('upload-file-selected'),
+    selectedFileName: document.getElementById('selected-file-name'),
+    selectedFileSize: document.getElementById('selected-file-size'),
+    processBtn: document.getElementById('process-btn'),
+    progressFill: document.getElementById('progress-fill'),
+    processingTitle: document.getElementById('processing-title'),
+    processingStatus: document.getElementById('processing-status'),
+    toastContainer: document.getElementById('toast-container')
+};
+
+// Initialize
 document.addEventListener('DOMContentLoaded', () => {
     setupNavigation();
     setupUploadZone();
     setupTabs();
     setupSearch();
     setupPlanSelection();
+    checkApiStatus();
 });
 
+function checkApiStatus() {
+    api.checkHealth().then(result => {
+        state.apiOnline = result.online;
+    });
+}
+
+// Navigation
 function setupNavigation() {
     document.querySelectorAll('.nav-link, .mobile-link').forEach(link => {
         link.addEventListener('click', (e) => {
@@ -43,12 +80,12 @@ function toggleMobile() {
 
 function navigateTo(page) {
     state.currentPage = page;
-    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-    const pageEl = document.getElementById(`page-${page}`);
-    if (pageEl) pageEl.classList.add('active');
+    Object.values(elements.pages).forEach(p => p.classList.remove('active'));
+    elements.pages[page]?.classList.add('active');
     window.scrollTo(0, 0);
 }
 
+// Plan Selection
 function setupPlanSelection() {
     document.querySelectorAll('input[name="report-plan"]').forEach(radio => {
         radio.addEventListener('change', (e) => {
@@ -62,7 +99,9 @@ function setupPlanSelection() {
 function selectPlan(plan) {
     state.selectedPlan = plan;
     const radio = document.querySelector(`input[name="report-plan"][value="${plan}"]`);
-    if (radio) radio.checked = true;
+    if (radio) {
+        radio.checked = true;
+    }
     updateUploadHeaderForPlan(plan);
     navigateTo('upload');
 }
@@ -117,9 +156,10 @@ function validatePlan() {
     }
 }
 
+// Upload
 function setupUploadZone() {
-    const zone = document.getElementById('upload-zone');
-    const input = document.getElementById('file-input');
+    const zone = elements.uploadZone;
+    const input = elements.fileInput;
 
     zone.addEventListener('click', (e) => {
         if (e.target.closest('button')) return;
@@ -162,11 +202,11 @@ function handleFileSelect(file) {
     }
 
     state.selectedFile = file;
-    document.getElementById('upload-prompt').style.display = 'none';
-    document.getElementById('upload-file-selected').style.display = 'flex';
-    document.getElementById('selected-file-name').textContent = file.name;
-    document.getElementById('selected-file-size').textContent = formatFileSize(file.size);
-    document.getElementById('process-btn').disabled = false;
+    elements.uploadPrompt.style.display = 'none';
+    elements.uploadFileSelected.style.display = 'flex';
+    elements.selectedFileName.textContent = file.name;
+    elements.selectedFileSize.textContent = formatFileSize(file.size);
+    elements.processBtn.disabled = false;
 
     detectExchange(file);
 }
@@ -203,10 +243,10 @@ function resetUpload() {
     state.detectedExchange = null;
     state.transactionCount = 0;
     state.planValidation = null;
-    document.getElementById('file-input').value = '';
-    document.getElementById('upload-prompt').style.display = 'flex';
-    document.getElementById('upload-file-selected').style.display = 'none';
-    document.getElementById('process-btn').disabled = true;
+    elements.fileInput.value = '';
+    elements.uploadPrompt.style.display = 'flex';
+    elements.uploadFileSelected.style.display = 'none';
+    elements.processBtn.disabled = true;
     const detectEl = document.getElementById('detected-exchange');
     if (detectEl) {
         detectEl.style.display = 'none';
@@ -229,6 +269,7 @@ function formatFileSize(bytes) {
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
 }
 
+// Process
 async function processFile() {
     if (!state.selectedFile) return;
     if (state.planValidation === 'over_limit') {
@@ -236,49 +277,48 @@ async function processFile() {
         return;
     }
 
+    const timezone = document.getElementById('timezone-select')?.value || '';
     const plan = state.selectedPlan || 'free';
     const accounting = plan === 'standard' || plan === 'complete';
 
     navigateTo('processing');
-    document.getElementById('processing-title').textContent = 'Processing your report...';
-    document.getElementById('processing-status').textContent = 'Uploading report...';
-    document.getElementById('progress-fill').style.width = '0%';
+    elements.processingTitle.textContent = 'Processing your report...';
+    elements.processingStatus.textContent = 'Uploading report...';
+    elements.progressFill.style.width = '0%';
 
-    try {
-        const result = await api.processFile(state.selectedFile, '', accounting, plan);
-        document.getElementById('progress-fill').style.width = '100%';
+    const result = await api.processFile(state.selectedFile, timezone, accounting, plan);
 
-        if (result.success) {
-            state.results = result.data;
-            document.getElementById('processing-title').textContent = 'Analysis complete';
-            document.getElementById('processing-status').textContent = 'Preparing results...';
+    elements.progressFill.style.width = '100%';
 
-            setTimeout(() => {
-                renderResults(result.data);
-                navigateTo('results');
+    if (result.success) {
+        state.results = result.data;
+        elements.processingTitle.textContent = 'Analysis complete';
+        elements.processingStatus.textContent = 'Preparing results...';
 
-                if (result.partial) {
-                    showToast('warning', 'Partial Success', 'Some transactions could not be processed. Check the Warnings tab for details.');
-                } else {
-                    showToast('success', 'Success', 'Your report has been processed successfully.');
-                }
-            }, 500);
-        } else {
-            document.getElementById('processing-title').textContent = 'Processing failed';
-            document.getElementById('processing-status').textContent = result.error;
-            document.getElementById('progress-fill').style.width = '0%';
-            showToast('error', 'Processing Failed', result.error);
-            setTimeout(() => navigateTo('upload'), 2000);
-        }
-    } catch (error) {
-        document.getElementById('processing-title').textContent = 'Processing failed';
-        document.getElementById('processing-status').textContent = 'An unexpected error occurred.';
-        document.getElementById('progress-fill').style.width = '0%';
-        showToast('error', 'Processing Failed', 'An unexpected error occurred. Please try again.');
-        setTimeout(() => navigateTo('upload'), 2000);
+        setTimeout(() => {
+            renderResults(result.data);
+            navigateTo('results');
+
+            if (result.partial) {
+                showToast('warning', 'Partial Success', 'Some transactions could not be processed. Check the Warnings tab for details.');
+            } else {
+                showToast('success', 'Success', 'Your report has been processed successfully.');
+            }
+        }, 500);
+    } else {
+        elements.processingTitle.textContent = 'Processing failed';
+        elements.processingStatus.textContent = result.error;
+        elements.progressFill.style.width = '0%';
+
+        showToast('error', 'Processing Failed', result.error);
+
+        setTimeout(() => {
+            navigateTo('upload');
+        }, 2000);
     }
 }
 
+// Render Results
 function renderResults(data) {
     document.getElementById('results-source').textContent = `${data.source || 'Unknown'} - ${data.report_type || 'Unknown Report'}`;
 
@@ -297,75 +337,33 @@ function renderResults(data) {
     renderWarnings(data);
 }
 
-function renderReconciliation(data) {
-    const transferMatches = data.transfer_matches?.matches || [];
-    const unmatchedTransfers = data.transfer_matches?.unmatched_leg_ids?.length || 0;
-    const convertMatches = data.convert_matches?.matches || [];
-    const duplicateGroups = data.duplicate_findings?.groups || [];
-
-    document.getElementById('recon-matched-transfers').textContent = transferMatches.length;
-    document.getElementById('recon-unmatched-transfers').textContent = unmatchedTransfers;
-    document.getElementById('recon-conversions').textContent = convertMatches.length;
-    document.getElementById('recon-duplicates').textContent = duplicateGroups.length;
-}
-
-function renderAccounting(acct) {
-    if (!acct || !acct.summary) {
-        document.getElementById('acct-events').textContent = '0';
-        document.getElementById('acct-acquisitions').textContent = '0';
-        document.getElementById('acct-disposals').textContent = '0';
-        document.getElementById('acct-lots').textContent = '0';
-        document.getElementById('accounting-body').innerHTML = '<tr><td colspan="7" class="empty-state">No accounting data available</td></tr>';
-        return;
-    }
-
-    const summary = acct.summary;
-    document.getElementById('acct-events').textContent = summary.total_events || 0;
-    document.getElementById('acct-acquisitions').textContent = summary.acquisition_events || 0;
-    document.getElementById('acct-disposals').textContent = summary.disposal_events || 0;
-    document.getElementById('acct-lots').textContent = summary.total_lots_created || 0;
-
-    const events = acct.events || [];
-    document.getElementById('accounting-body').innerHTML = events.map(event => `
-        <tr>
-            <td>${formatDate(event.timestamp)}</td>
-            <td><span class="badge badge-${getAccountingEventClass(event.event_type)}">${event.event_type}</span></td>
-            <td>${event.asset}</td>
-            <td>${formatNumber(event.quantity)}</td>
-            <td>${event.cost_basis ? formatCurrency(event.cost_basis, event.cost_currency) : '<span class="unresolved">UNRESOLVED</span>'}</td>
-            <td>${event.proceeds ? formatCurrency(event.proceeds, event.proceeds_currency) : '<span class="unresolved">UNRESOLVED</span>'}</td>
-            <td class="${event.realized_pnl ? (parseFloat(event.realized_pnl) >= 0 ? 'text-positive' : 'text-negative') : ''}">${event.realized_pnl ? formatCurrency(event.realized_pnl, event.pnl_currency) : '<span class="unresolved">UNRESOLVED</span>'}</td>
-        </tr>
-    `).join('');
-}
-
-function renderPnLCard(acct) {
+function renderPnLCard(accountingResult) {
     const pnlCard = document.getElementById('pnl-card');
-    if (!acct || !acct.summary) {
+    if (!accountingResult || !accountingResult.summary) {
         pnlCard.style.display = 'none';
         return;
     }
 
     pnlCard.style.display = 'block';
-    const summary = acct.summary;
+    const summary = accountingResult.summary;
     const totalPnL = summary.total_realized_pnl;
     const currency = summary.pnl_currency || 'USD';
 
     const pnlTotalEl = document.getElementById('pnl-total');
-    if (totalPnL !== null && totalPnL !== undefined && totalPnL !== '') {
+    if (totalPnL !== null && totalPnL !== undefined) {
         const pnlValue = parseFloat(totalPnL);
         pnlTotalEl.textContent = (pnlValue >= 0 ? '+' : '') + formatCurrency(pnlValue, currency);
         pnlTotalEl.className = 'pnl-value ' + (pnlValue >= 0 ? 'positive' : 'negative');
     } else {
-        pnlTotalEl.textContent = 'UNRESOLVED';
-        pnlTotalEl.className = 'pnl-value unresolved';
+        pnlTotalEl.textContent = '--';
+        pnlTotalEl.className = 'pnl-value';
     }
 
     const breakdownEl = document.getElementById('pnl-breakdown');
     breakdownEl.innerHTML = '';
 
-    if (acct.realized_pnl && acct.realized_pnl.length > 0) {
-        acct.realized_pnl.forEach(pnl => {
+    if (accountingResult.realized_pnl && accountingResult.realized_pnl.length > 0) {
+        accountingResult.realized_pnl.forEach(pnl => {
             const assetEl = document.createElement('div');
             assetEl.className = 'pnl-asset';
             const value = parseFloat(pnl.total_realized_pnl);
@@ -402,6 +400,106 @@ function renderTransactionsTable(transactions) {
     });
 
     document.getElementById('pagination-info').textContent = `Showing ${transactions.length} transactions`;
+}
+
+function renderReconciliation(data) {
+    const transfersContent = document.getElementById('transfers-content');
+    const transferMatches = data.transfer_matches?.matches || [];
+    document.getElementById('transfer-count').textContent = `${transferMatches.length} matched`;
+
+    if (transferMatches.length > 0) {
+        transfersContent.innerHTML = transferMatches.map(match => `
+            <div class="recon-item">
+                <div class="recon-item-header">
+                    <span class="recon-item-title">${match.asset} - ${formatNumber(match.quantity)}</span>
+                    <span class="recon-item-detail">${formatDate(match.timestamp)}</span>
+                </div>
+                <div class="recon-item-detail">From: ${match.source_account || 'Unknown'} → To: ${match.destination_account || 'Unknown'}</div>
+                <div class="reasons-list">${match.reasons.map(r => `<span class="reason-tag">${r}</span>`).join('')}</div>
+            </div>
+        `).join('');
+    } else {
+        transfersContent.innerHTML = '<p class="empty-state">No internal transfers detected</p>';
+    }
+
+    const duplicatesContent = document.getElementById('duplicates-content');
+    const duplicateGroups = data.duplicate_findings?.groups || [];
+    document.getElementById('duplicate-count').textContent = `${duplicateGroups.length} found`;
+
+    if (duplicateGroups.length > 0) {
+        duplicatesContent.innerHTML = duplicateGroups.map(group => `
+            <div class="recon-item">
+                <div class="recon-item-header">
+                    <span class="recon-item-title">${group.classification.replace(/_/g, ' ')}</span>
+                    <span class="recon-item-detail">Score: ${group.score}</span>
+                </div>
+                <div class="recon-item-detail">${group.transaction_ids.length} transactions: ${group.transaction_ids.slice(0, 3).join(', ')}${group.transaction_ids.length > 3 ? '...' : ''}</div>
+                <div class="reasons-list">${group.reasons.map(r => `<span class="reason-tag">${r}</span>`).join('')}</div>
+            </div>
+        `).join('');
+    } else {
+        duplicatesContent.innerHTML = '<p class="empty-state">No duplicates detected</p>';
+    }
+
+    const convertsContent = document.getElementById('converts-content');
+    const convertMatches = data.convert_matches?.matches || [];
+    document.getElementById('convert-count').textContent = `${convertMatches.length} found`;
+
+    if (convertMatches.length > 0) {
+        convertsContent.innerHTML = convertMatches.map(match => `
+            <div class="recon-item">
+                <div class="recon-item-header">
+                    <span class="recon-item-title">${match.input_asset} → ${match.output_asset}</span>
+                    <span class="recon-item-detail">${formatDate(match.timestamp)}</span>
+                </div>
+                <div class="recon-item-detail">Sold: ${formatNumber(match.input_quantity)} ${match.input_asset} → Bought: ${formatNumber(match.output_quantity)} ${match.output_asset}</div>
+                <div class="reasons-list">${match.reasons.map(r => `<span class="reason-tag">${r}</span>`).join('')}</div>
+            </div>
+        `).join('');
+    } else {
+        convertsContent.innerHTML = '<p class="empty-state">No convert events detected</p>';
+    }
+}
+
+function renderAccounting(accountingResult) {
+    const summaryEvents = document.getElementById('acct-events');
+    const summaryAcquisitions = document.getElementById('acct-acquisitions');
+    const summaryDisposals = document.getElementById('acct-disposals');
+    const summaryLots = document.getElementById('acct-lots');
+    const accountingBody = document.getElementById('accounting-body');
+
+    if (!accountingResult || !accountingResult.summary) {
+        summaryEvents.textContent = '0';
+        summaryAcquisitions.textContent = '0';
+        summaryDisposals.textContent = '0';
+        summaryLots.textContent = '0';
+        accountingBody.innerHTML = '<tr><td colspan="7" class="empty-state">No accounting data available</td></tr>';
+        return;
+    }
+
+    const summary = accountingResult.summary;
+    summaryEvents.textContent = summary.total_events || 0;
+    summaryAcquisitions.textContent = summary.acquisition_events || 0;
+    summaryDisposals.textContent = summary.disposal_events || 0;
+    summaryLots.textContent = summary.total_lots_created || 0;
+
+    const events = accountingResult.events || [];
+    accountingBody.innerHTML = events.map(event => `
+        <tr>
+            <td>${formatDate(event.timestamp)}</td>
+            <td><span class="badge badge-${getAccountingEventClass(event.event_type)}">${event.event_type}</span></td>
+            <td>${event.asset}</td>
+            <td>${formatNumber(event.quantity)}</td>
+            <td>${event.cost_basis ? formatCurrency(event.cost_basis, event.cost_currency) : '-'}</td>
+            <td>${event.proceeds ? formatCurrency(event.proceeds, event.proceeds_currency) : '-'}</td>
+            <td class="${event.realized_pnl ? (parseFloat(event.realized_pnl) >= 0 ? 'text-positive' : 'text-negative') : ''}">${event.realized_pnl ? formatCurrency(event.realized_pnl, event.pnl_currency) : '-'}</td>
+        </tr>
+    `).join('');
+}
+
+function getAccountingEventClass(type) {
+    const classes = { 'ACQUISITION': 'deposit', 'DISPOSAL': 'withdrawal', 'TRANSFER': 'transfer', 'SWAP': 'swap', 'FEE': 'fee', 'NON_ACCOUNTING': 'unknown' };
+    return classes[type] || 'unknown';
 }
 
 function renderWarnings(data) {
@@ -441,11 +539,7 @@ function renderWarnings(data) {
     }
 }
 
-function getAccountingEventClass(type) {
-    const classes = { 'ACQUISITION': 'deposit', 'DISPOSAL': 'withdrawal', 'TRANSFER': 'transfer', 'SWAP': 'swap', 'FEE': 'fee', 'NON_ACCOUNTING': 'unknown' };
-    return classes[type] || 'unknown';
-}
-
+// Tabs
 function setupTabs() {
     document.querySelectorAll('.tab').forEach(tab => {
         tab.addEventListener('click', () => {
@@ -458,6 +552,7 @@ function setupTabs() {
     });
 }
 
+// Search
 function setupSearch() {
     const searchInput = document.getElementById('transaction-search');
     const typeFilter = document.getElementById('type-filter');
@@ -490,11 +585,13 @@ function setupSearch() {
     typeFilter?.addEventListener('change', filterTransactions);
 }
 
+// FAQ Accordion
 function toggleFaq(item) {
     const answer = item.querySelector('.faq-answer');
     const icon = item.querySelector('.faq-question svg');
     const isOpen = item.classList.contains('active');
 
+    // Close all
     document.querySelectorAll('.faq-item').forEach(faq => {
         faq.classList.remove('active');
         const a = faq.querySelector('.faq-answer');
@@ -503,6 +600,7 @@ function toggleFaq(item) {
         if (i) i.style.transform = 'rotate(0deg)';
     });
 
+    // Open clicked if it wasn't open
     if (!isOpen) {
         item.classList.add('active');
         if (answer) answer.style.display = 'block';
@@ -510,6 +608,7 @@ function toggleFaq(item) {
     }
 }
 
+// Export
 function exportResults() {
     if (!state.results || !state.results.transactions) {
         showToast('error', 'No Data', 'No results to export.');
@@ -545,8 +644,8 @@ function exportResults() {
     showToast('success', 'Export Complete', 'Results downloaded as CSV.');
 }
 
+// Toast
 function showToast(type, title, message) {
-    const toastContainer = document.getElementById('toast-container');
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
     toast.innerHTML = `
@@ -558,7 +657,7 @@ function showToast(type, title, message) {
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M12 4L4 12M4 4L12 12" stroke="currentColor" stroke-width="2"/></svg>
         </button>
     `;
-    toastContainer.appendChild(toast);
+    elements.toastContainer.appendChild(toast);
     setTimeout(() => {
         toast.style.opacity = '0';
         toast.style.transform = 'translateX(100%)';
@@ -566,6 +665,7 @@ function showToast(type, title, message) {
     }, 5000);
 }
 
+// Utilities
 function formatDate(dateStr) {
     if (!dateStr) return '-';
     const date = new Date(dateStr);
