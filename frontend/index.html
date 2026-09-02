@@ -14,7 +14,7 @@
         <!-- Navigation -->
         <nav class="nav">
             <div class="nav-inner">
-                <a href="#" class="nav-brand" onclick="navigateTo('home'); return false;">
+                <a href="#" class="nav-brand" onclick="navigateTo('landing'); return false;">
                     <div class="brand-mark">
                         <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
                             <path d="M14 2L16.5 8H23L18 12L20 18L14 14L8 18L10 12L5 8H11.5L14 2Z" fill="currentColor"/>
@@ -23,26 +23,26 @@
                     <span class="brand-name">CryptoClean</span>
                 </a>
                 <div class="nav-links">
-                    <a href="#features" class="nav-link" onclick="document.getElementById('features').scrollIntoView({behavior:'smooth'}); return false;">Product</a>
-                    <a href="#how-it-works" class="nav-link" onclick="document.getElementById('how-it-works').scrollIntoView({behavior:'smooth'}); return false;">How It Works</a>
-                    <a href="#pricing" class="nav-link" onclick="document.getElementById('pricing').scrollIntoView({behavior:'smooth'}); return false;">Pricing</a>
-                    <a href="#security" class="nav-link" onclick="document.getElementById('security').scrollIntoView({behavior:'smooth'}); return false;">Security</a>
-                    <a href="#faq" class="nav-link" onclick="document.getElementById('faq').scrollIntoView({behavior:'smooth'}); return false;">FAQ</a>
+                    <a href="#features" class="nav-link" onclick="navigateTo('landing'); setTimeout(() => document.getElementById('features').scrollIntoView({behavior:'smooth'}), 50); return false;">Product</a>
+                    <a href="#how-it-works" class="nav-link" onclick="navigateTo('landing'); setTimeout(() => document.getElementById('how-it-works').scrollIntoView({behavior:'smooth'}), 50); return false;">How It Works</a>
+                    <a href="#pricing" class="nav-link" onclick="navigateTo('landing'); setTimeout(() => document.getElementById('pricing').scrollIntoView({behavior:'smooth'}), 50); return false;">Pricing</a>
+                    <a href="#" class="nav-link" onclick="navigateTo('security'); return false;">Security</a>
+                    <a href="#" class="nav-link" onclick="navigateTo('faq'); return false;">FAQ</a>
                 </div>
                 <div class="nav-actions">
-                    <button class="btn btn-primary" onclick="navigateTo('upload')">Upload Report</button>
+                    <button class="btn btn-primary btn-md" onclick="selectPlan('free')">Upload Report</button>
                 </div>
                 <button class="nav-mobile-toggle" id="mobile-toggle" onclick="toggleMobile()">
                     <span></span><span></span><span></span>
                 </button>
             </div>
             <div class="nav-mobile" id="nav-mobile">
-                <a href="#features" class="mobile-link" onclick="document.getElementById('features').scrollIntoView({behavior:'smooth'}); toggleMobile(); return false;">Product</a>
-                <a href="#how-it-works" class="mobile-link" onclick="document.getElementById('how-it-works').scrollIntoView({behavior:'smooth'}); toggleMobile(); return false;">How It Works</a>
-                <a href="#pricing" class="mobile-link" onclick="document.getElementById('pricing').scrollIntoView({behavior:'smooth'}); toggleMobile(); return false;">Pricing</a>
-                <a href="#security" class="mobile-link" onclick="document.getElementById('security').scrollIntoView({behavior:'smooth'}); toggleMobile(); return false;">Security</a>
-                <a href="#faq" class="mobile-link" onclick="document.getElementById('faq').scrollIntoView({behavior:'smooth'}); toggleMobile(); return false;">FAQ</a>
-                <button class="btn btn-primary btn-block" onclick="navigateTo('upload'); toggleMobile();">Upload Report</button>
+                <a href="#features" class="mobile-link" onclick="navigateTo('landing'); setTimeout(() => document.getElementById('features').scrollIntoView({behavior:'smooth'}), 50); toggleMobile(); return false;">Product</a>
+                <a href="#how-it-works" class="mobile-link" onclick="navigateTo('landing'); setTimeout(() => document.getElementById('how-it-works').scrollIntoView({behavior:'smooth'}), 50); toggleMobile(); return false;">How It Works</a>
+                <a href="#pricing" class="mobile-link" onclick="navigateTo('landing'); setTimeout(() => document.getElementById('pricing').scrollIntoView({behavior:'smooth'}), 50); toggleMobile(); return false;">Pricing</a>
+                <a href="#" class="mobile-link" onclick="navigateTo('security'); toggleMobile(); return false;">Security</a>
+                <a href="#" class="mobile-link" onclick="navigateTo('faq'); toggleMobile(); return false;">FAQ</a>
+                <button class="btn btn-primary btn-block" onclick="selectPlan('free'); toggleMobile();">Upload Report</button>
             </div>
         </nav>
 
@@ -65,7 +65,7 @@
                             Upload your exchange reports and get accurate capital gains, income summaries, and full reconciliation in seconds. Built for professionals who demand precision.
                         </p>
                         <div class="hero-cta">
-                            <button class="btn btn-primary btn-xl" onclick="navigateTo('upload')">
+                            <button class="btn btn-primary btn-xl" onclick="selectPlan('free')">
                                 Start Free Analysis
                                 <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M7.5 15L12.5 10L7.5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
                             </button>
@@ -300,7 +300,7 @@
                                 <li>Coinbase CSV support</li>
                                 <li>CSV export</li>
                             </ul>
-                            <button class="btn btn-secondary btn-block" onclick="selectPlan('free')">Get Free Report</button>
+                            <button class="btn btn-primary btn-block" onclick="selectPlan('free')">Get Free Report</button>
                         </div>
                         <div class="pricing-card popular">
                             <div class="popular-badge">Most Popular</div>
@@ -311,13 +311,13 @@
                             <ul>
                                 <li>Up to 5,000 transactions</li>
                                 <li>Full transaction analysis</li>
-                                <li>Realized P&L</li>
-                                <li>Cost-basis calculation</li>
+                                <li>Realized P&L (where data allows)</li>
+                                <li>FIFO cost-basis calculation</li>
                                 <li>Internal transfer detection</li>
                                 <li>Duplicate detection</li>
-                                <li>Binance support</li>
-                                <li>Coinbase support</li>
-                                <li>CSV export</li>
+                                <li>Conversion handling</li>
+                                <li>Binance + Coinbase support</li>
+                                <li>Professional CSV export</li>
                             </ul>
                             <button class="btn btn-primary btn-block" onclick="selectPlan('standard')">Choose Standard</button>
                         </div>
@@ -329,19 +329,21 @@
                             <ul>
                                 <li>Unlimited transactions</li>
                                 <li>Full transaction reconciliation</li>
-                                <li>Realized P&L</li>
-                                <li>Unrealized P&L</li>
-                                <li>Cost-basis calculation</li>
+                                <li>Realized P&L (where data allows)</li>
+                                <li>FIFO cost-basis calculation</li>
                                 <li>Internal transfer matching</li>
                                 <li>Duplicate detection</li>
                                 <li>Conversion/event classification</li>
                                 <li>Income summary</li>
                                 <li>Capital gains summary</li>
-                                <li>Binance support</li>
-                                <li>Coinbase support</li>
+                                <li>Holdings report</li>
+                                <li>Complete audit trail</li>
+                                <li>Tax-year reporting</li>
+                                <li>PDF report</li>
+                                <li>Binance + Coinbase support</li>
                                 <li>Tax-ready CSV export</li>
                             </ul>
-                            <button class="btn btn-secondary btn-block" onclick="selectPlan('complete')">Choose Complete</button>
+                            <button class="btn btn-primary btn-block" onclick="selectPlan('complete')">Choose Complete</button>
                         </div>
                     </div>
                 </div>
@@ -351,7 +353,7 @@
                     <div class="cta-content">
                         <h2>Ready to simplify your crypto taxes?</h2>
                         <p>Upload your first report and see results in seconds.</p>
-                        <button class="btn btn-primary btn-xl" onclick="selectPlan('free')">
+                        <button class="btn btn-primary btn-xl" onclick="document.getElementById('pricing').scrollIntoView({behavior:'smooth'})">
                             Get Started Now
                             <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M7.5 15L12.5 10L7.5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
                         </button>
@@ -363,7 +365,7 @@
             <section class="page" id="page-upload">
                 <div class="upload-page">
                     <div class="upload-header">
-                        <button class="btn btn-ghost btn-sm" onclick="navigateTo('home')">
+                        <button class="btn btn-ghost btn-sm" onclick="navigateTo('landing')">
                             <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 12L6 8L10 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
                             Back
                         </button>
@@ -395,15 +397,47 @@
                                 </div>
                                 <p class="file-name" id="selected-file-name"></p>
                                 <p class="file-size" id="selected-file-size"></p>
+                                <p class="detected-exchange" id="detected-exchange" style="display: none; font-size: var(--font-size-sm); color: var(--accent-600); font-weight: 600;"></p>
                                 <button class="btn btn-ghost btn-sm" onclick="resetUpload()">Change file</button>
                             </div>
                         </div>
 
                         <div class="upload-options">
                             <div class="option-group">
+                                <label class="option-label">Report Plan</label>
+                                <p class="option-hint">Choose the plan that fits your needs</p>
+                                <div class="plan-cards">
+                                    <label class="plan-card" data-plan="free">
+                                        <input type="radio" name="report-plan" value="free" checked>
+                                        <span class="plan-card-content">
+                                            <span class="plan-label">FREE</span>
+                                            <span class="plan-price">$0</span>
+                                            <span class="plan-limit">Up to 100 transactions</span>
+                                        </span>
+                                    </label>
+                                    <label class="plan-card" data-plan="standard">
+                                        <input type="radio" name="report-plan" value="standard">
+                                        <span class="plan-card-content">
+                                            <span class="plan-label">STANDARD</span>
+                                            <span class="plan-price">$9</span>
+                                            <span class="plan-limit">Up to 5,000 transactions</span>
+                                        </span>
+                                    </label>
+                                    <label class="plan-card" data-plan="complete">
+                                        <input type="radio" name="report-plan" value="complete">
+                                        <span class="plan-card-content">
+                                            <span class="plan-label">COMPLETE</span>
+                                            <span class="plan-price">$19</span>
+                                            <span class="plan-limit">Unlimited transactions</span>
+                                        </span>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="option-group">
                                 <label class="option-label">Timezone</label>
-                                <p class="option-hint">Used to interpret transaction timestamps</p>
+                                <p class="option-hint">Used to interpret transaction timestamps. Not needed if your CSV already contains timezone info.</p>
                                 <select id="timezone-select" class="form-select">
+                                    <option value="">Auto-detect from CSV</option>
                                     <option value="UTC">UTC</option>
                                     <option value="America/New_York">Eastern Time (ET)</option>
                                     <option value="America/Chicago">Central Time (CT)</option>
@@ -416,28 +450,14 @@
                                     <option value="Australia/Sydney">Sydney (AEST)</option>
                                 </select>
                             </div>
-                            <div class="option-group">
-                                <label class="option-label">Processing Mode</label>
-                                <p class="option-hint">Choose the level of analysis</p>
-                                <div class="radio-group">
-                                    <label class="radio-label">
-                                        <input type="radio" name="processing-mode" value="standard" checked>
-                                        <span class="radio-custom"></span>
-                                        <span class="radio-content">
-                                            <strong>Standard</strong>
-                                            <small>Transaction classification & reconciliation</small>
-                                        </span>
-                                    </label>
-                                    <label class="radio-label">
-                                        <input type="radio" name="processing-mode" value="accounting">
-                                        <span class="radio-custom"></span>
-                                        <span class="radio-content">
-                                            <strong>With Accounting</strong>
-                                            <small>FIFO cost basis & P&L calculation</small>
-                                        </span>
-                                    </label>
-                                </div>
+                        </div>
+
+                        <div class="upload-plan-summary" id="upload-plan-summary" style="display: none;">
+                            <div class="plan-summary-card" id="plan-summary-card">
+                                <span class="plan-summary-label" id="plan-summary-label">Free Report</span>
+                                <span class="plan-summary-limit" id="plan-summary-limit">Up to 100 transactions</span>
                             </div>
+                            <div class="plan-validation" id="plan-validation"></div>
                         </div>
 
                         <div class="upload-actions">
@@ -475,44 +495,101 @@
                             <span class="results-source" id="results-source"></span>
                         </div>
                         <div class="results-actions">
+                            <div class="tax-year-selector">
+                                <label for="tax-year-select">Tax Year:</label>
+                                <select id="tax-year-select" class="form-select form-select-sm">
+                                    <option value="all">All Years</option>
+                                    <option value="2021">2021</option>
+                                    <option value="2022">2022</option>
+                                    <option value="2023">2023</option>
+                                    <option value="2024">2024</option>
+                                    <option value="2025">2025</option>
+                                    <option value="2026">2026</option>
+                                </select>
+                            </div>
                             <button class="btn btn-ghost" onclick="navigateTo('upload')">
                                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 12L6 8L10 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
                                 New Upload
                             </button>
                             <button class="btn btn-primary" onclick="exportResults()">
-                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M14 10V12.6667C14 13.0203 13.8595 13.3594 13.6095 13.6095C13.3594 13.8595 13.0203 14 12.6667 14H3.33333C2.97971 14 2.64057 13.8595 2.39052 13.6095C2.14048 13.3594 2 13.0203 2 12.6667V10" stroke="currentColor" stroke-width="1.5"/><path d="M4.66667 6.66667L8 10L11.3333 6.66667" stroke="currentColor" stroke-width="1.5"/><path d="M8 10V2" stroke="currentColor" stroke-width="1.5"/></svg>
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M14 10V12.6667C14 13.0203 13.8595 13.6095 13.6095 13.6095C13.3594 13.8595 13.0203 14 12.6667 14H3.33333C2.97971 14 2.64057 13.8595 2.39052 13.6095C2.14048 13.3594 2.14048 13.3594 2 12.6667V10" stroke="currentColor" stroke-width="1.5"/><path d="M4.66667 6.66667L8 10L11.3333 6.66667" stroke="currentColor" stroke-width="1.5"/><path d="M8 10V2" stroke="currentColor" stroke-width="1.5"/></svg>
                                 Export CSV
                             </button>
                         </div>
                     </div>
 
-                    <div class="summary-cards">
-                        <div class="summary-card">
-                            <span class="card-label">Total Transactions</span>
-                            <span class="card-value" id="stat-total">0</span>
+                    <!-- Top-Level Metric Cards -->
+                    <div class="metrics-grid">
+                        <div class="metric-card">
+                            <span class="metric-label">Total Transactions</span>
+                            <span class="metric-value" id="stat-total">0</span>
                         </div>
-                        <div class="summary-card">
-                            <span class="card-label">Trades</span>
-                            <span class="card-value" id="stat-trades">0</span>
+                        <div class="metric-card">
+                            <span class="metric-label">Accounting Events</span>
+                            <span class="metric-value" id="stat-acquisitions">0</span>
                         </div>
-                        <div class="summary-card">
-                            <span class="card-label">Transfers</span>
-                            <span class="card-value" id="stat-transfers">0</span>
+                        <div class="metric-card">
+                            <span class="metric-label">Acquisitions</span>
+                            <span class="metric-value" id="stat-acquisitions">0</span>
                         </div>
-                        <div class="summary-card">
-                            <span class="card-label">Deposits</span>
-                            <span class="card-value" id="stat-deposits">0</span>
+                        <div class="metric-card">
+                            <span class="metric-label">Disposals</span>
+                            <span class="metric-value" id="stat-disposals">0</span>
                         </div>
-                        <div class="summary-card">
-                            <span class="card-label">Withdrawals</span>
-                            <span class="card-value" id="stat-withdrawals">0</span>
+                        <div class="metric-card">
+                            <span class="metric-label">Transfers</span>
+                            <span class="metric-value" id="stat-transfers">0</span>
                         </div>
-                        <div class="summary-card">
-                            <span class="card-label">Fees</span>
-                            <span class="card-value" id="stat-fees">0</span>
+                        <div class="metric-card">
+                            <span class="metric-label">Matched Transfers</span>
+                            <span class="metric-value" id="stat-matched-transfers">0</span>
+                        </div>
+                        <div class="metric-card">
+                            <span class="metric-label">Fees</span>
+                            <span class="metric-value" id="stat-fees">0</span>
+                        </div>
+                        <div class="metric-card">
+                            <span class="metric-label">UNKNOWN / Unresolved</span>
+                            <span class="metric-value unresolved" id="stat-unknown">0</span>
+                        </div>
+                        <div class="metric-card">
+                            <span class="metric-label">Review Required</span>
+                            <span class="metric-value" id="stat-review">0</span>
                         </div>
                     </div>
 
+                    <!-- Financial Metrics -->
+                    <div class="financial-section">
+                        <h3>Financial Summary</h3>
+                        <div class="financial-grid">
+                            <div class="financial-item">
+                                <span class="financial-label">Total Proceeds</span>
+                                <span class="metric-value" id="metric-proceeds">--</span>
+                            </div>
+                            <div class="financial-item">
+                                <span class="financial-label">Total Cost Basis</span>
+                                <span class="metric-value" id="metric-cost-basis">--</span>
+                            </div>
+                            <div class="financial-item">
+                                <span class="financial-label">Total Fees</span>
+                                <span class="metric-value" id="metric-fees">--</span>
+                            </div>
+                            <div class="financial-item">
+                                <span class="financial-label">Realized Gains</span>
+                                <span class="metric-value" id="metric-gains">--</span>
+                            </div>
+                            <div class="financial-item">
+                                <span class="financial-label">Realized Losses</span>
+                                <span class="metric-value" id="metric-losses">--</span>
+                            </div>
+                            <div class="financial-item">
+                                <span class="financial-label">Net Realized P&L</span>
+                                <span class="metric-value" id="metric-net-pnl">--</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- P&L Card -->
                     <div class="pnl-card" id="pnl-card">
                         <div class="pnl-header">
                             <h3>Realized Profit & Loss</h3>
@@ -527,14 +604,122 @@
                         </div>
                     </div>
 
+                    <!-- Transaction Overview -->
+                    <div class="section-card">
+                        <h3>Transaction Overview</h3>
+                        <div class="overview-grid" id="transaction-overview-items">
+                            <div class="overview-item">
+                                <span class="overview-label">Deposits</span>
+                                <span class="overview-value">0</span>
+                            </div>
+                            <div class="overview-item">
+                                <span class="overview-label">Withdrawals</span>
+                                <span class="overview-value">0</span>
+                            </div>
+                            <div class="overview-item">
+                                <span class="overview-label">Trades</span>
+                                <span class="overview-value">0</span>
+                            </div>
+                            <div class="overview-item">
+                                <span class="overview-label">Transfers</span>
+                                <span class="overview-value">0</span>
+                            </div>
+                            <div class="overview-item">
+                                <span class="overview-label">Fees</span>
+                                <span class="overview-value">0</span>
+                            </div>
+                            <div class="overview-item">
+                                <span class="overview-label">Rewards / Income</span>
+                                <span class="overview-value">0</span>
+                            </div>
+                            <div class="overview-item">
+                                <span class="overview-label">Non-Accounting</span>
+                                <span class="overview-value">0</span>
+                            </div>
+                            <div class="overview-item">
+                                <span class="overview-label">Duplicates</span>
+                                <span class="overview-value">0</span>
+                            </div>
+                            <div class="overview-item">
+                                <span class="overview-label">Convert Events</span>
+                                <span class="overview-value">0</span>
+                            </div>
+                            <div class="overview-item">
+                                <span class="overview-label">Unresolved</span>
+                                <span class="overview-value">0</span>
+                            </div>
+                            <div class="overview-item">
+                                <span class="overview-label">Review Required</span>
+                                <span class="overview-value">0</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Reconciliation -->
+                    <div class="section-card">
+                        <h3>Reconciliation</h3>
+                        <div class="recon-summary-grid">
+                            <div class="recon-summary-item">
+                                <span class="recon-label">Matched Transfers</span>
+                                <span class="recon-value" id="recon-matched-transfers">0</span>
+                            </div>
+                            <div class="recon-summary-item">
+                                <span class="recon-label">Unmatched Transfers</span>
+                                <span class="recon-value" id="recon-unmatched-transfers">0</span>
+                            </div>
+                            <div class="recon-summary-item">
+                                <span class="recon-label">Conversions</span>
+                                <span class="recon-value" id="recon-conversions">0</span>
+                            </div>
+                            <div class="recon-summary-item">
+                                <span class="recon-label">Duplicates</span>
+                                <span class="recon-value" id="recon-duplicates">0</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tax-Ready Summary -->
+                    <div class="section-card tax-card">
+                        <h3>Tax-Ready Summary</h3>
+                        <p class="tax-disclaimer">Prepared for tax reporting / review. Not an official government tax form.</p>
+                        <div class="tax-grid">
+                            <div class="tax-item">
+                                <span class="tax-label">Reporting Period</span>
+                                <span class="tax-value" id="tax-year-label">All Years</span>
+                            </div>
+                            <div class="tax-item">
+                                <span class="tax-label">Capital Gains (Disposals)</span>
+                                <span class="tax-value" id="tax-capital-gains">0</span>
+                            </div>
+                            <div class="tax-item">
+                                <span class="tax-label">Income Events</span>
+                                <span class="tax-value" id="tax-income">0</span>
+                            </div>
+                            <div class="tax-item">
+                                <span class="tax-label">Fees</span>
+                                <span class="tax-value" id="tax-fees">0</span>
+                            </div>
+                            <div class="tax-item">
+                                <span class="tax-label">Transfers</span>
+                                <span class="tax-value" id="tax-transfers">0</span>
+                            </div>
+                            <div class="tax-item">
+                                <span class="tax-label">Exceptions</span>
+                                <span class="tax-value unresolved" id="tax-exceptions">0</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Results Tabs -->
                     <div class="results-tabs">
                         <button class="tab active" data-tab="transactions">Transactions</button>
                         <button class="tab" data-tab="reconciliation">Reconciliation</button>
                         <button class="tab" data-tab="accounting">Accounting</button>
-                        <button class="tab" data-tab="warnings">Warnings</button>
+                        <button class="tab" data-tab="warnings">Warnings & Exceptions</button>
                     </div>
 
                     <div class="tab-content">
+                        <!-- Transactions Tab -->
                         <div class="tab-pane active" id="tab-transactions">
                             <div class="table-container">
                                 <div class="table-toolbar">
@@ -579,6 +764,7 @@
                             </div>
                         </div>
 
+                        <!-- Reconciliation Tab -->
                         <div class="tab-pane" id="tab-reconciliation">
                             <div class="reconciliation-sections">
                                 <div class="recon-section">
@@ -611,6 +797,7 @@
                             </div>
                         </div>
 
+                        <!-- Accounting Tab -->
                         <div class="tab-pane" id="tab-accounting">
                             <div class="accounting-sections">
                                 <div class="accounting-summary">
@@ -653,6 +840,7 @@
                             </div>
                         </div>
 
+                        <!-- Warnings Tab -->
                         <div class="tab-pane" id="tab-warnings">
                             <div class="warnings-sections">
                                 <div class="warnings-section">
@@ -692,7 +880,7 @@
                                 <li>Basic reconciliation</li>
                                 <li>CSV export</li>
                             </ul>
-                            <button class="btn btn-secondary btn-block" onclick="navigateTo('upload')">Get Started</button>
+                            <button class="btn btn-primary btn-block" onclick="selectPlan('free')">Get Started</button>
                         </div>
                         <div class="pricing-card popular">
                             <div class="popular-badge">Most Popular</div>
@@ -705,7 +893,7 @@
                                 <li>Priority support</li>
                                 <li>API access</li>
                             </ul>
-                            <button class="btn btn-primary btn-block" onclick="navigateTo('upload')">Start Free Trial</button>
+                            <button class="btn btn-primary btn-block" onclick="selectPlan('standard')">Start Free Trial</button>
                         </div>
                         <div class="pricing-card">
                             <h3>Enterprise</h3>
@@ -717,7 +905,7 @@
                                 <li>SLA guarantee</li>
                                 <li>On-premise option</li>
                             </ul>
-                            <button class="btn btn-secondary btn-block" onclick="navigateTo('upload')">Contact Sales</button>
+                            <button class="btn btn-primary btn-block" onclick="selectPlan('complete')">Contact Sales</button>
                         </div>
                     </div>
                 </div>

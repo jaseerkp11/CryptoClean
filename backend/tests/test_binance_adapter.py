@@ -4,7 +4,7 @@ import pytest
 
 from backend.adapters.base import AdapterResult
 from backend.adapters.binance.transaction_record import BinanceTransactionRecordAdapter
-from backend.models.transaction import CanonicalTransaction, Source, TransactionType
+from backend.models.transaction import CanonicalTransaction, Side, Source, TransactionType
 
 
 def _load_sample_rows() -> list[dict]:
@@ -110,7 +110,7 @@ def test_funding_fee_mapping():
     assert any("Funding Fee preserved in metadata" in w for w in result.warnings)
 
 
-def test_realized_pnl_does_not_become_trade():
+def test_realized_pnl_positive_maps_to_reward():
     adapter = BinanceTransactionRecordAdapter(timezone="UTC")
     rows = [
         {"User ID": "REDACTED", "Time": "2024-10-20 21:06:00", "Account": "Spot", "Operation": "Realized Profit and Loss", "Coin": "USDT", "Change": "+10.0", "Remark": "TradeID - 12345"}
@@ -118,11 +118,23 @@ def test_realized_pnl_does_not_become_trade():
     result = adapter.adapt(rows)
     assert len(result.transactions) == 1
     tx = result.transactions[0]
-    assert tx.transaction_type == TransactionType.UNKNOWN
+    assert tx.transaction_type == TransactionType.REWARD
     assert tx.source_transaction_id == "12345"
 
 
-def test_p2p_does_not_become_trade():
+def test_realized_pnl_negative_maps_to_fee():
+    adapter = BinanceTransactionRecordAdapter(timezone="UTC")
+    rows = [
+        {"User ID": "REDACTED", "Time": "2024-10-20 21:06:00", "Account": "Spot", "Operation": "Realized Profit and Loss", "Coin": "USDT", "Change": "-5.0", "Remark": "TradeID - 12345"}
+    ]
+    result = adapter.adapt(rows)
+    assert len(result.transactions) == 1
+    tx = result.transactions[0]
+    assert tx.transaction_type == TransactionType.FEE
+    assert tx.source_transaction_id == "12345"
+
+
+def test_p2p_trade_maps_to_trade():
     adapter = BinanceTransactionRecordAdapter(timezone="UTC")
     rows = [
         {"User ID": "REDACTED", "Time": "2024-10-20 21:07:00", "Account": "Spot", "Operation": "P2P Trading", "Coin": "USDT", "Change": "+100.0", "Remark": "P2P - 22775202417291345920"}
@@ -130,9 +142,9 @@ def test_p2p_does_not_become_trade():
     result = adapter.adapt(rows)
     assert len(result.transactions) == 1
     tx = result.transactions[0]
-    assert tx.transaction_type == TransactionType.UNKNOWN
+    assert tx.transaction_type == TransactionType.TRADE
+    assert tx.side == Side.BUY
     assert tx.source_transaction_id == "22775202417291345920"
-    assert any("P2P Trading requires a dedicated parser" in w for w in result.warnings)
 
 
 def test_crypto_box_mapping():
@@ -270,3 +282,89 @@ def test_empty_rows():
     assert len(result.transactions) == 0
     assert len(result.errors) == 1
     assert "No rows provided" in result.errors[0]
+
+
+def test_withdrawal_mapping():
+    adapter = BinanceTransactionRecordAdapter(timezone="UTC")
+    rows = [
+        {"User ID": "REDACTED", "Time": "2024-10-20 21:01:19", "Account": "Spot", "Operation": "Withdraw", "Coin": "SOL", "Change": "-1.0", "Remark": ""}
+    ]
+    result = adapter.adapt(rows)
+    assert len(result.transactions) == 1
+    tx = result.transactions[0]
+    assert tx.transaction_type == TransactionType.WITHDRAWAL
+    assert tx.quantity == Decimal("1.0")
+
+
+def test_buy_mapping():
+    adapter = BinanceTransactionRecordAdapter(timezone="UTC")
+    rows = [
+        {"User ID": "REDACTED", "Time": "2024-10-20 21:01:19", "Account": "Spot", "Operation": "Buy", "Coin": "BTC", "Change": "+0.01", "Remark": ""}
+    ]
+    result = adapter.adapt(rows)
+    assert len(result.transactions) == 1
+    tx = result.transactions[0]
+    assert tx.transaction_type == TransactionType.TRADE
+    assert tx.side == Side.BUY
+    assert tx.quantity == Decimal("0.01")
+
+
+def test_sell_mapping():
+    adapter = BinanceTransactionRecordAdapter(timezone="UTC")
+    rows = [
+        {"User ID": "REDACTED", "Time": "2024-10-20 21:01:19", "Account": "Spot", "Operation": "Sell", "Coin": "BTC", "Change": "-0.01", "Remark": ""}
+    ]
+    result = adapter.adapt(rows)
+    assert len(result.transactions) == 1
+    tx = result.transactions[0]
+    assert tx.transaction_type == TransactionType.TRADE
+    assert tx.side == Side.SELL
+    assert tx.quantity == Decimal("0.01")
+
+
+def test_asset_recovery_maps_to_deposit():
+    adapter = BinanceTransactionRecordAdapter(timezone="UTC")
+    rows = [
+        {"User ID": "REDACTED", "Time": "2024-10-20 21:09:00", "Account": "Spot", "Operation": "Asset Recovery", "Coin": "BTC", "Change": "+0.001", "Remark": ""}
+    ]
+    result = adapter.adapt(rows)
+    assert len(result.transactions) == 1
+    tx = result.transactions[0]
+    assert tx.transaction_type == TransactionType.DEPOSIT
+    assert tx.quantity == Decimal("0.001")
+
+
+def test_insurance_fund_refund_maps_to_reward():
+    adapter = BinanceTransactionRecordAdapter(timezone="UTC")
+    rows = [
+        {"User ID": "REDACTED", "Time": "2024-10-20 21:11:00", "Account": "Spot", "Operation": "Insurance Fund Refund", "Coin": "USDT", "Change": "+0.1", "Remark": ""}
+    ]
+    result = adapter.adapt(rows)
+    assert len(result.transactions) == 1
+    tx = result.transactions[0]
+    assert tx.transaction_type == TransactionType.REWARD
+    assert tx.quantity == Decimal("0.1")
+
+
+def test_staking_rewards_maps_to_reward():
+    adapter = BinanceTransactionRecordAdapter(timezone="UTC")
+    rows = [
+        {"User ID": "REDACTED", "Time": "2024-10-20 21:01:19", "Account": "Spot", "Operation": "Staking Rewards", "Coin": "BNB", "Change": "+0.5", "Remark": ""}
+    ]
+    result = adapter.adapt(rows)
+    assert len(result.transactions) == 1
+    tx = result.transactions[0]
+    assert tx.transaction_type == TransactionType.REWARD
+    assert tx.quantity == Decimal("0.5")
+
+
+def test_airdrop_maps_to_airdrop():
+    adapter = BinanceTransactionRecordAdapter(timezone="UTC")
+    rows = [
+        {"User ID": "REDACTED", "Time": "2024-10-20 21:01:19", "Account": "Spot", "Operation": "Airdrop", "Coin": "XYZ", "Change": "+100.0", "Remark": ""}
+    ]
+    result = adapter.adapt(rows)
+    assert len(result.transactions) == 1
+    tx = result.transactions[0]
+    assert tx.transaction_type == TransactionType.AIRDROP
+    assert tx.quantity == Decimal("100.0")

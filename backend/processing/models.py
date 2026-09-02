@@ -29,6 +29,17 @@ class ProcessingSummary(BaseModel):
     convert_events: int = 0
     unresolved_convert_rows: int = 0
     comments: int = 0
+    acquisitions: int = 0
+    disposals: int = 0
+    non_accounting: int = 0
+    unresolved: int = 0
+    accounting_events: int = 0
+    total_proceeds: Optional[str] = None
+    total_cost_basis: Optional[str] = None
+    total_fees: Optional[str] = None
+    realized_gains: Optional[str] = None
+    realized_losses: Optional[str] = None
+    net_realized_pnl: Optional[str] = None
 
 
 class ProcessingResult(BaseModel):

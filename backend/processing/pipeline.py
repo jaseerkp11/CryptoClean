@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import os
 import tempfile
+from decimal import Decimal
 from typing import Optional
 
 import pandas as pd
 
 from backend.accounting.configuration import AccountingConfiguration
 from backend.accounting.engine import AccountingEngine
+from backend.accounting.models import AccountingEventType
 from backend.ingestion.reader import read_csv_safely
 from backend.ingestion.detector import detect_exchange
 from backend.adapters.registry import get_adapter, AdapterNotFoundError
@@ -117,9 +119,6 @@ class ProcessingPipeline:
         result.convert_matches = convert_result
         result.warnings.extend(convert_result.warnings)
         result.comment_findings = self.comment_engine.process(transactions)
-        result.summary = self._build_summary(
-            transactions, dup_result, transfer_result, convert_result, result.comment_findings
-        )
 
         effective_accounting = accounting_config is not None or bool(plan_config.get("accounting"))
         if effective_accounting:
@@ -137,6 +136,10 @@ class ProcessingPipeline:
                 )
             except Exception as e:
                 result.errors.append(f"Accounting failed: {e}")
+
+        result.summary = self._build_summary(
+            transactions, dup_result, transfer_result, convert_result, result.comment_findings, result.accounting_result
+        )
 
         return result
 
@@ -167,7 +170,7 @@ class ProcessingPipeline:
             except OSError:
                 pass
 
-    def _build_summary(self, transactions, dup_result, transfer_result, convert_result, comment_result=None) -> ProcessingSummary:
+    def _build_summary(self, transactions, dup_result, transfer_result, convert_result, comment_result=None, accounting_result=None) -> ProcessingSummary:
         s = ProcessingSummary()
         s.total_transactions = len(transactions)
         s.duplicate_groups = len(dup_result.groups)
@@ -207,4 +210,39 @@ class ProcessingPipeline:
                 s.swaps += 1
         if comment_result:
             s.comments = len(comment_result.comments)
+
+        if accounting_result:
+            s.accounting_events = len(accounting_result.events)
+            s.acquisitions = sum(1 for e in accounting_result.events if e.event_type == AccountingEventType.ACQUISITION)
+            s.disposals = sum(1 for e in accounting_result.events if e.event_type == AccountingEventType.DISPOSAL)
+            s.non_accounting = sum(1 for e in accounting_result.events if e.event_type == AccountingEventType.NON_ACCOUNTING)
+
+            total_proceeds = Decimal("0")
+            total_cost_basis = Decimal("0")
+            total_fees = Decimal("0")
+            realized_gains = Decimal("0")
+            realized_losses = Decimal("0")
+            net_realized_pnl = Decimal("0")
+
+            for e in accounting_result.events:
+                if e.proceeds is not None:
+                    total_proceeds += e.proceeds
+                if e.cost_basis is not None:
+                    total_cost_basis += e.cost_basis
+                if e.fee is not None:
+                    total_fees += e.fee
+                if e.realized_pnl is not None:
+                    net_realized_pnl += e.realized_pnl
+                    if e.realized_pnl > 0:
+                        realized_gains += e.realized_pnl
+                    elif e.realized_pnl < 0:
+                        realized_losses += e.realized_pnl
+
+            s.total_proceeds = str(total_proceeds) if total_proceeds != 0 else None
+            s.total_cost_basis = str(total_cost_basis) if total_cost_basis != 0 else None
+            s.total_fees = str(total_fees) if total_fees != 0 else None
+            s.realized_gains = str(realized_gains) if realized_gains != 0 else None
+            s.realized_losses = str(realized_losses) if realized_losses != 0 else None
+            s.net_realized_pnl = str(net_realized_pnl) if net_realized_pnl != 0 else None
+
         return s

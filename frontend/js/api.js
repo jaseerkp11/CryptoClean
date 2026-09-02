@@ -31,10 +31,11 @@ const api = {
      * @param {boolean} accounting - Whether to include accounting calculations
      * @param {function} onProgress - Progress callback
      */
-    async processFile(file, timezone, accounting = false, onProgress = null) {
+    async processFile(file, timezone, accounting = false, plan = 'free', onProgress = null) {
         const formData = new FormData();
         formData.append('file', file);
-        formData.append('timezone', timezone);
+        formData.append('timezone', timezone || '');
+        formData.append('plan', plan);
         if (accounting) {
             formData.append('accounting', 'true');
         }

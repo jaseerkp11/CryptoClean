@@ -23,3 +23,21 @@ generated/
 # OS
 Thumbs.db
 .DS_Store
+
+# Local Netlify folder
+.netlify
+
+# Large test data
+*.csv
+sample_data/
+test_binance_response.json
+
+# Deployment artifacts
+frontend-deploy.zip
+frontend.zip
+frontend_fixed.zip
+
+# Deployment reports
+M034_PRODUCTION_DEPLOYMENT_REPORT.md
+M036_FRONTEND_DEPLOYMENT_REPORT.md
+M037_PREMIUM_FRONTEND_REDESIGN_REPORT.md

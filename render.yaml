@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: cryptclean-api
+    name: cryptoclean-api
     runtime: python
     plan: free
     buildCommand: pip install -r requirements.txt

@@ -72,15 +72,15 @@ def test_duplicate_findings_returned():
 def test_unknown_operation_preserved():
     res = _pipeline().process_csv_content(BINANCE_CSV, "UTC")
     unknowns = [t for t in res.transactions if t.transaction_type == TransactionType.UNKNOWN]
-    # Binance Convert (2) + P2P Trading + Realized Profit and Loss + Unknown Operation
-    assert len(unknowns) == 5
+    # Binance Convert (2) + Unknown Operation
+    assert len(unknowns) == 3
 
 
 # 7. Fee appears correctly
 def test_fee_appears():
     res = _pipeline().process_csv_content(BINANCE_CSV, "UTC")
     fees = [t for t in res.transactions if t.transaction_type == TransactionType.FEE]
-    assert len(fees) == 2
+    assert len(fees) == 3
 
 
 # 8. User ID is not returned
@@ -175,10 +175,10 @@ def test_summary_counts_correct():
     assert s.deposits == 1
     assert s.withdrawals == 0
     assert s.transfers == 3  # 2 transfer legs + 1 Earn subscription
-    assert s.fees == 2
+    assert s.fees == 3
     assert s.internal_transfers == 1
     assert s.duplicate_groups == 0
-    assert s.unknown_transactions == 5
+    assert s.unknown_transactions == 3
 
 
 def test_api_process_endpoint():

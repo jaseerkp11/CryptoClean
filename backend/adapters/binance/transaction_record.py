@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional
 from zoneinfo import ZoneInfo
 
 from backend.adapters.base import BaseAdapter, AdapterResult
-from backend.models.transaction import CanonicalTransaction, Source, TransactionType
+from backend.models.transaction import CanonicalTransaction, Side, Source, TransactionType
 
 
 class BinanceTransactionRecordAdapter(BaseAdapter):
@@ -82,53 +82,147 @@ class BinanceTransactionRecordAdapter(BaseAdapter):
         raw = f"binance|{account}|{time}|{operation}|{coin}|{change}|{remark or ''}"
         return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:32]
 
-    def _map_operation(self, operation: str) -> tuple[TransactionType, Optional[Side], str]:
+    def _map_operation(self, operation: str, change: Optional[str] = None) -> tuple[TransactionType, Optional[Side], str]:
         op = operation.strip()
+        signed = Decimal("0")
+        if change is not None:
+            try:
+                signed = Decimal(change.strip())
+            except (InvalidOperation, ValueError):
+                signed = Decimal("0")
 
         if op == "Deposit":
             return TransactionType.DEPOSIT, None, ""
 
-        if op == "Binance Convert":
-            return (
-                TransactionType.UNKNOWN,
-                None,
-                "Binance Convert rows should be grouped later.",
-            )
+        if op == "Withdraw":
+            return TransactionType.WITHDRAWAL, None, ""
+
+        if op in {"Transaction Buy", "Auto-Invest Transaction"}:
+            if signed > 0:
+                return TransactionType.TRADE, Side.BUY, ""
+            return TransactionType.UNKNOWN, None, f"Non-positive {op}."
+
+        if op in {"Transaction Sold", "Transaction Spend", "Merchant Acquiring"}:
+            if signed < 0:
+                return TransactionType.TRADE, Side.SELL, ""
+            return TransactionType.UNKNOWN, None, f"Non-negative {op}."
+
+        if op == "Buy":
+            return TransactionType.TRADE, Side.BUY, ""
+
+        if op == "Sell":
+            return TransactionType.TRADE, Side.SELL, ""
+
+        if op in {
+            "Binance Convert",
+            "Futures Convert - From",
+            "Futures Convert - To",
+            "Stablecoins Auto-Conversion",
+            "Token Swap - Redenomination/Rebranding",
+            "Small Assets Exchange BNB",
+            "Small Assets Exchange",
+        }:
+            return TransactionType.UNKNOWN, None, f"{op} rows should be grouped later."
 
         if op in {
             "Transfer Between Spot and UM Futures",
             "Transfer Between UM Futures and Funding",
             "Transfer Between Spot and Funding",
+            "Transfer Between Spot and CM Futures",
+            "Transfer Between CM Futures and Funding",
+            "Transfer Between Spot and Margin",
+            "Transfer Between Margin and Funding",
+            "Transfer Between Spot and Isolated Margin",
+            "Transfer",
         }:
             return TransactionType.TRANSFER, None, ""
 
         if op == "Fee":
             return TransactionType.FEE, None, ""
 
+        if op == "Transaction Fee":
+            return TransactionType.FEE, None, ""
+
         if op == "Funding Fee":
             return TransactionType.FEE, None, "Funding Fee preserved in metadata."
 
         if op == "Realized Profit and Loss":
-            return (
-                TransactionType.UNKNOWN,
-                None,
-                "Realized P&L requires a dedicated canonical type.",
-            )
+            if signed > 0:
+                return TransactionType.REWARD, None, "Realized profit mapped to REWARD."
+            if signed < 0:
+                return TransactionType.FEE, None, "Realized loss mapped to FEE."
+            return TransactionType.UNKNOWN, None, "Zero-change Realized P&L."
 
         if op == "P2P Trading":
-            return TransactionType.UNKNOWN, None, "P2P Trading requires a dedicated parser."
+            if signed > 0:
+                return TransactionType.TRADE, Side.BUY, "P2P buy inferred from positive change."
+            if signed < 0:
+                return TransactionType.TRADE, Side.SELL, "P2P sell inferred from negative change."
+            return TransactionType.UNKNOWN, None, "Zero-change P2P trade."
 
         if op == "Crypto Box":
             return TransactionType.REWARD, None, ""
 
+        if op == "Crypto Box Refund":
+            return TransactionType.REWARD, None, ""
+
         if op == "Asset Recovery":
-            return TransactionType.UNKNOWN, None, ""
+            return TransactionType.DEPOSIT, None, ""
 
         if op == "Simple Earn Flexible Subscription":
             return TransactionType.TRANSFER, None, ""
 
-        if op == "Insurance Fund Refund":
-            return TransactionType.UNKNOWN, None, ""
+        if op == "Simple Earn Flexible Redemption":
+            return TransactionType.TRANSFER, None, ""
+
+        if op == "Simple Earn Flexible Airdrop":
+            return TransactionType.AIRDROP, None, ""
+
+        if op == "Simple Earn Flexible Interest":
+            return TransactionType.REWARD, None, ""
+
+        if op in {"Simple Earn Locked Subscription", "Simple Earn Locked Redemption"}:
+            return TransactionType.TRANSFER, None, ""
+
+        if op == "Staking Purchase":
+            return TransactionType.TRANSFER, None, ""
+
+        if op == "Staking Redemption":
+            return TransactionType.TRANSFER, None, ""
+
+        if op == "Staking Rewards":
+            return TransactionType.REWARD, None, ""
+
+        if op == "Launchpool":
+            return TransactionType.REWARD, None, ""
+
+        if op == "Launchpool Airdrop - User Claim Distribution":
+            return TransactionType.AIRDROP, None, ""
+
+        if op == "Launchpool Subscription/Redemption":
+            return TransactionType.TRANSFER, None, ""
+
+        if op == "Distribution":
+            return TransactionType.AIRDROP, None, ""
+
+        if op in {"Airdrop Assets", "Airdrop"}:
+            return TransactionType.AIRDROP, None, ""
+
+        if op in {
+            "Cash Voucher",
+            "Cash Voucher Distribution",
+            "Commission Rebate",
+            "Referrer Commission",
+            "Insurance Fund Refund",
+            "Transaction Revenue",
+        }:
+            return TransactionType.REWARD, None, ""
+
+        if op == "Commission Fee":
+            return TransactionType.FEE, None, ""
+
+        if op == "NFT - Unfreeze for Payment":
+            return TransactionType.WITHDRAWAL, None, ""
 
         return TransactionType.UNKNOWN, None, f"Unrecognized Binance operation: {op}"
 
@@ -154,7 +248,7 @@ class BinanceTransactionRecordAdapter(BaseAdapter):
                 timestamp = self._parse_timestamp(time_str)
                 change = self._parse_change(change_str)
 
-                tx_type, side, op_warning = self._map_operation(operation)
+                tx_type, side, op_warning = self._map_operation(operation, change_str)
                 if op_warning:
                     warnings.append(op_warning)
 
