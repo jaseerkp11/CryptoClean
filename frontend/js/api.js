@@ -94,16 +94,107 @@ const api = {
      * @param {boolean} accounting - Whether to include accounting calculations
      */
     async processFiles(files, timezone, accounting = false, plan = 'free') {
-        const isSingleFile = files.length === 1;
-        const endpoint = accounting
-            ? (isSingleFile ? '/api/v1/account' : '/api/v1/process-multi')
-            : (isSingleFile ? '/api/v1/process' : '/api/v1/process-multi');
+        if (files.length === 1) {
+            return this.processFile(files[0], timezone, accounting, plan);
+        }
 
         const formData = new FormData();
-        const fieldName = isSingleFile ? 'file' : 'files';
         for (const file of files) {
-            formData.append(fieldName, file);
+            formData.append('files', file);
         }
+
+        const endpoint = accounting ? '/api/v1/account' : '/api/v1/process-multi';
+        const url = new URL(`${API_BASE_URL}${endpoint}`);
+        url.searchParams.set('plan', plan || 'free');
+        if (timezone) {
+            url.searchParams.set('timezone', timezone);
+        }
+        if (accounting) {
+            url.searchParams.set('accounting', 'true');
+        }
+
+        try {
+            const response = await fetch(url.toString(), {
+                method: 'POST',
+                body: formData,
+            });
+
+            if (response.status === 404) {
+                return await this._processFilesIndividually(files, timezone, accounting, plan);
+            }
+
+            const data = await response.json();
+
+            if (response.ok || response.status === 207) {
+                return {
+                    success: true,
+                    status: response.status,
+                    data: data,
+                    partial: response.status === 207
+                };
+            } else {
+                return {
+                    success: false,
+                    status: response.status,
+                    error: safeString(data.detail || data || 'An error occurred while processing your files.'),
+                    data: data
+                };
+            }
+        } catch (error) {
+            return {
+                success: false,
+                status: 0,
+                error: 'Unable to connect to the server. Please check your connection and try again.'
+            };
+        }
+    },
+
+    async _processFilesIndividually(files, timezone, accounting = false, plan = 'free') {
+        const combined = {
+            success: true,
+            status: 200,
+            data: null,
+            warnings: [],
+            errors: []
+        };
+
+        for (const file of files) {
+            const result = await this.processFile(file, timezone, accounting, plan);
+            if (!result.success) {
+                combined.success = false;
+                combined.status = result.status || 400;
+                combined.errors = combined.errors.concat(result.error || ['Unknown error']);
+                continue;
+            }
+
+            if (!combined.data) {
+                combined.data = result.data;
+            } else {
+                combined.data.transaction_count += result.data.transaction_count || 0;
+                combined.data.transactions = (combined.data.transactions || []).concat(result.data.transactions || []);
+                combined.data.warnings = (combined.data.warnings || []).concat(result.data.warnings || []);
+                combined.data.errors = (combined.data.errors || []).concat(result.data.errors || []);
+                if (result.data.accounting_result) {
+                    combined.data.accounting_result = result.data.accounting_result;
+                }
+                if (result.data.summary) {
+                    combined.data.summary = result.data.summary;
+                }
+            }
+        }
+
+        if (combined.data) {
+            combined.data.warnings = combined.warnings;
+            combined.data.errors = combined.errors;
+        }
+
+        return combined;
+    },
+
+    async processFile(file, timezone, accounting = false, plan = 'free') {
+        const endpoint = accounting ? '/api/v1/account' : '/api/v1/process';
+        const formData = new FormData();
+        formData.append('file', file);
 
         const url = new URL(`${API_BASE_URL}${endpoint}`);
         url.searchParams.set('plan', plan || 'free');
@@ -133,7 +224,7 @@ const api = {
                 return {
                     success: false,
                     status: response.status,
-                    error: safeString(data.detail || data || 'An error occurred while processing your files.'),
+                    error: safeString(data.detail || data || 'An error occurred while processing your file.'),
                     data: data
                 };
             }
