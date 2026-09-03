@@ -119,33 +119,23 @@ const api = {
                 body: formData,
             });
 
-            if (response.status === 404) {
+            if (!response.ok) {
+                const data = await response.json().catch(() => ({}));
+                console.error('Multi-file endpoint error:', response.status, data);
                 return await this._processFilesIndividually(files, timezone, accounting, plan);
             }
 
             const data = await response.json();
 
-            if (response.ok || response.status === 207) {
-                return {
-                    success: true,
-                    status: response.status,
-                    data: data,
-                    partial: response.status === 207
-                };
-            } else {
-                return {
-                    success: false,
-                    status: response.status,
-                    error: safeString(data.detail || data || 'An error occurred while processing your files.'),
-                    data: data
-                };
-            }
-        } catch (error) {
             return {
-                success: false,
-                status: 0,
-                error: 'Unable to connect to the server. Please check your connection and try again.'
+                success: true,
+                status: response.status,
+                data: data,
+                partial: response.status === 207
             };
+        } catch (error) {
+            console.error('Multi-file endpoint exception:', error);
+            return await this._processFilesIndividually(files, timezone, accounting, plan);
         }
     },
 
