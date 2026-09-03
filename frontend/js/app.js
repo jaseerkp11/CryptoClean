@@ -959,6 +959,10 @@ function renderPnLCard(accountingResult) {
         const currency = (summary.pnl_currency || 'USD').toString().toUpperCase();
 
         const pnlTotalEl = document.getElementById('pnl-total');
+        const pnlBreakdownEl = document.getElementById('pnl-breakdown');
+        
+        if (!pnlTotalEl || !pnlBreakdownEl) return;
+
         if (totalPnL !== null && totalPnL !== undefined && safeStr(totalPnL) !== null) {
             const pnlValue = safeNum(totalPnL);
             pnlTotalEl.innerHTML = (pnlValue >= 0 ? '+' : '') + fmtCurrency(pnlValue, currency);
@@ -968,8 +972,7 @@ function renderPnLCard(accountingResult) {
             pnlTotalEl.className = 'pnl-value';
         }
 
-        const breakdownEl = document.getElementById('pnl-breakdown');
-        breakdownEl.innerHTML = '';
+        pnlBreakdownEl.innerHTML = '';
 
         const realizedPnl = accountingResult.realized_pnl || [];
         if (realizedPnl.length > 0) {
@@ -984,12 +987,13 @@ function renderPnLCard(accountingResult) {
                         ${value !== null && value >= 0 ? '+' : ''}${fmtCurrency(value, pnlCurrency)}
                     </span>
                 `;
-                breakdownEl.appendChild(assetEl);
+                pnlBreakdownEl.appendChild(assetEl);
             });
         }
     } catch (error) {
         console.error('renderPnLCard failed:', error);
-        throw error;
+        const pnlCard = document.getElementById('pnl-card');
+        if (pnlCard) pnlCard.style.display = 'none';
     }
 }
 
@@ -1041,7 +1045,6 @@ function renderTransactionsTable(transactions) {
         renderPagination(totalPages);
     } catch (error) {
         console.error('renderTransactionsTable failed:', error);
-        throw error;
     }
 }
 
@@ -1150,7 +1153,6 @@ function renderReconciliation(data) {
         }
     } catch (error) {
         console.error('renderReconciliation failed:', error);
-        throw error;
     }
 }
 
@@ -1164,6 +1166,9 @@ function renderAccounting(accountingResult) {
         const summaryAcquisitions = document.getElementById('acct-acquisitions');
         const summaryDisposals = document.getElementById('acct-disposals');
         const summaryLots = document.getElementById('acct-lots');
+        const accountingBody = document.getElementById('accounting-body');
+        const lotsBody = document.getElementById('lots-body');
+        const consumptionsBody = document.getElementById('consumptions-body');
 
         if (!accountingResult || !accountingResult.summary || Object.keys(accountingResult.summary || {}).length === 0) {
             if (summaryEvents) summaryEvents.textContent = '0';
@@ -1177,15 +1182,13 @@ function renderAccounting(accountingResult) {
         }
 
         const summary = accountingResult.summary || {};
-        summaryEvents.textContent = summary.total_events || 0;
-        summaryAcquisitions.textContent = summary.acquisition_events || 0;
-        summaryDisposals.textContent = summary.disposal_events || 0;
-        summaryLots.textContent = summary.total_lots_created || 0;
+        if (summaryEvents) summaryEvents.textContent = summary.total_events || 0;
+        if (summaryAcquisitions) summaryAcquisitions.textContent = summary.acquisition_events || 0;
+        if (summaryDisposals) summaryDisposals.textContent = summary.disposal_events || 0;
+        if (summaryLots) summaryLots.textContent = summary.total_lots_created || 0;
 
-        // Events
         const events = accountingResult.events || [];
-        const accountingBody = document.getElementById('accounting-body');
-        if (events.length > 0) {
+        if (events.length > 0 && accountingBody) {
             accountingBody.innerHTML = events.map(event => `
                 <tr>
                     <td>${fmtDate(event.timestamp)}</td>
@@ -1198,14 +1201,12 @@ function renderAccounting(accountingResult) {
                     <td>${safeStr(event.source_transaction_id) || '-'}</td>
                 </tr>
             `).join('');
-        } else {
+        } else if (accountingBody) {
             showEmptyState('accounting-body', 'No events found');
         }
 
-        // Lots
         const lots = accountingResult.lots || [];
-        const lotsBody = document.getElementById('lots-body');
-        if (lots.length > 0) {
+        if (lots.length > 0 && lotsBody) {
             lotsBody.innerHTML = lots.map(lot => `
                 <tr>
                     <td>${safeStr(lot.lot_id) || '-'}</td>
@@ -1217,14 +1218,12 @@ function renderAccounting(accountingResult) {
                     <td>${safeStr(lot.source_transaction_id) || '-'}</td>
                 </tr>
             `).join('');
-        } else {
+        } else if (lotsBody) {
             showEmptyState('lots-body', 'No lots found');
         }
 
-        // Consumptions
         const consumptions = accountingResult.consumptions || [];
-        const consumptionsBody = document.getElementById('consumptions-body');
-        if (consumptions.length > 0) {
+        if (consumptions.length > 0 && consumptionsBody) {
             consumptionsBody.innerHTML = consumptions.map(c => `
                 <tr>
                     <td>${safeStr(c.consumption_id) || '-'}</td>
@@ -1238,12 +1237,11 @@ function renderAccounting(accountingResult) {
                     <td>${fmtCurrency(c.realized_pnl, 'USD')}</td>
                 </tr>
             `).join('');
-        } else {
+        } else if (consumptionsBody) {
             showEmptyState('consumptions-body', 'No consumptions found');
         }
     } catch (error) {
         console.error('renderAccounting failed:', error);
-        throw error;
     }
 }
 
@@ -1338,7 +1336,6 @@ function renderTaxSummary(accountingResult) {
         }
     } catch (error) {
         console.error('renderTaxSummary failed:', error);
-        throw error;
     }
 }
 
@@ -1386,7 +1383,6 @@ function renderHoldings(accountingResult) {
         }
     } catch (error) {
         console.error('renderHoldings failed:', error);
-        throw error;
     }
 }
 
@@ -1416,7 +1412,6 @@ function renderMissingBasis(accountingResult) {
         }
     } catch (error) {
         console.error('renderMissingBasis failed:', error);
-        throw error;
     }
 }
 
@@ -1536,7 +1531,6 @@ function renderExceptions(data, accountingResult) {
         }
     } catch (error) {
         console.error('renderExceptions failed:', error);
-        throw error;
     }
 }
 
@@ -1569,6 +1563,5 @@ function renderAuditTrail(accountingResult) {
         }
     } catch (error) {
         console.error('renderAuditTrail failed:', error);
-        throw error;
     }
 }
