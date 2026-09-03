@@ -1,6 +1,6 @@
 /**
  * KryptLedg Frontend Application
- * Premium Fintech SaaS - Functional Finalization
+ * Professional Crypto Tax Reporting Dashboard
  */
 
 // State
@@ -11,10 +11,12 @@ const state = {
     timezone: 'UTC',
     results: null,
     apiOnline: false,
-    activeTab: 'transactions',
+    activeTab: 'overview',
+    activeSubTab: 'events',
     detectedExchange: null,
     transactionCount: 0,
-    planValidation: null
+    planValidation: null,
+    filteredTransactions: []
 };
 
 // Elements
@@ -37,16 +39,64 @@ const elements = {
     progressFill: document.getElementById('progress-fill'),
     processingTitle: document.getElementById('processing-title'),
     processingStatus: document.getElementById('processing-status'),
-    toastContainer: document.getElementById('toast-container')
+    toastContainer: document.getElementById('toast-container'),
+    taxYearSelect: document.getElementById('tax-year-select')
 };
 
-// Initialize
+// ============================================
+// Data Mapping Layer — Safe Accessors
+// ============================================
+
+function safeNum(value) {
+    if (value === null || value === undefined || value === '') return null;
+    const num = parseFloat(value);
+    return isNaN(num) ? null : num;
+}
+
+function safeStr(value) {
+    if (value === null || value === undefined) return null;
+    return String(value).trim();
+}
+
+function fmtCurrency(value, currency = 'USD') {
+    const num = safeNum(value);
+    if (num === null) return '<span class="unresolved">UNRESOLVED</span>';
+    return num.toLocaleString('en-US', { style: 'currency', currency: currency.toUpperCase(), minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function fmtNumber(value) {
+    const num = safeNum(value);
+    if (num === null) return '<span class="unresolved">UNRESOLVED</span>';
+    if (Math.abs(num) >= 1000000) return (num / 1000000).toFixed(2) + 'M';
+    if (Math.abs(num) >= 1000) return (num / 1000).toFixed(2) + 'K';
+    if (Math.abs(num) < 0.01 && num !== 0) return num.toExponential(2);
+    return num.toLocaleString('en-US', { maximumFractionDigits: 6 });
+}
+
+function fmtDate(value) {
+    if (!value) return '<span class="unresolved">UNRESOLVED</span>';
+    const date = new Date(value);
+    if (isNaN(date.getTime())) return '<span class="unresolved">UNRESOLVED</span>';
+    return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+function fmtBadge(type) {
+    const t = safeStr(type) || 'UNKNOWN';
+    return `<span class="badge badge-${t.toLowerCase()}">${t}</span>`;
+}
+
+// ============================================
+// Initialization
+// ============================================
+
 document.addEventListener('DOMContentLoaded', () => {
     setupNavigation();
     setupUploadZone();
     setupTabs();
+    setupSubTabs();
     setupSearch();
     setupPlanSelection();
+    setupTaxYearFilter();
     checkApiStatus();
 });
 
@@ -56,7 +106,10 @@ function checkApiStatus() {
     });
 }
 
+// ============================================
 // Navigation
+// ============================================
+
 function setupNavigation() {
     document.querySelectorAll('.nav-link, .mobile-link').forEach(link => {
         link.addEventListener('click', (e) => {
@@ -84,7 +137,10 @@ function navigateTo(page) {
     window.scrollTo(0, 0);
 }
 
+// ============================================
 // Plan Selection
+// ============================================
+
 function setupPlanSelection() {
     document.querySelectorAll('input[name="report-plan"]').forEach(radio => {
         radio.addEventListener('change', (e) => {
@@ -155,7 +211,10 @@ function validatePlan() {
     }
 }
 
+// ============================================
 // Upload
+// ============================================
+
 function setupUploadZone() {
     const zone = elements.uploadZone;
     const input = elements.fileInput;
@@ -268,7 +327,10 @@ function formatFileSize(bytes) {
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
 }
 
+// ============================================
 // Process
+// ============================================
+
 async function processFile() {
     if (!state.selectedFile) return;
     if (state.planValidation === 'over_limit') {
@@ -300,7 +362,7 @@ async function processFile() {
                 navigateTo('results');
 
                 if (result.partial) {
-                    showToast('warning', 'Partial Success', 'Some transactions could not be processed. Check the Warnings tab for details.');
+                    showToast('warning', 'Partial Success', 'Some transactions could not be processed. Check the Exceptions tab for details.');
                 } else {
                     showToast('success', 'Success', 'Your report has been processed successfully.');
                 }
@@ -324,259 +386,10 @@ async function processFile() {
     }
 }
 
-// Render Results
-function renderResults(data) {
-    try {
-        document.getElementById('results-source').textContent = `${data.source || 'Unknown'} - ${data.report_type || 'Unknown Report'}`;
-
-        const summary = data.summary || {};
-        document.getElementById('stat-total').textContent = data.transaction_count || 0;
-        document.getElementById('stat-trades').textContent = summary.trades || 0;
-        document.getElementById('stat-transfers').textContent = summary.transfers || 0;
-        document.getElementById('stat-deposits').textContent = summary.deposits || 0;
-        document.getElementById('stat-withdrawals').textContent = summary.withdrawals || 0;
-        document.getElementById('stat-fees').textContent = summary.fees || 0;
-
-        renderPnLCard(data.accounting_result);
-        renderTransactionsTable(data.transactions || []);
-        renderReconciliation(data);
-        renderAccounting(data.accounting_result);
-        renderWarnings(data);
-    } catch (error) {
-        console.error('renderResults failed:', error);
-        throw error;
-    }
-}
-
-function renderPnLCard(accountingResult) {
-    try {
-        const pnlCard = document.getElementById('pnl-card');
-        if (!accountingResult || !accountingResult.summary) {
-            pnlCard.style.display = 'none';
-            return;
-        }
-
-        pnlCard.style.display = 'block';
-        const summary = accountingResult.summary;
-        const totalPnL = summary.total_realized_pnl;
-        const currency = (summary.pnl_currency || 'USD').toString().toUpperCase();
-
-        const pnlTotalEl = document.getElementById('pnl-total');
-        if (totalPnL !== null && totalPnL !== undefined) {
-            const pnlValue = parseFloat(totalPnL);
-            pnlTotalEl.textContent = (pnlValue >= 0 ? '+' : '') + formatCurrency(pnlValue, currency);
-            pnlTotalEl.className = 'pnl-value ' + (pnlValue >= 0 ? 'positive' : 'negative');
-        } else {
-            pnlTotalEl.textContent = '--';
-            pnlTotalEl.className = 'pnl-value';
-        }
-
-        const breakdownEl = document.getElementById('pnl-breakdown');
-        breakdownEl.innerHTML = '';
-
-        if (accountingResult.realized_pnl && accountingResult.realized_pnl.length > 0) {
-            accountingResult.realized_pnl.forEach(pnl => {
-                const assetEl = document.createElement('div');
-                assetEl.className = 'pnl-asset';
-                const value = parseFloat(pnl.total_realized_pnl);
-                const pnlCurrency = (pnl.currency || 'USD').toString().toUpperCase();
-                assetEl.innerHTML = `
-                    <span class="pnl-asset-name">${pnl.asset}</span>
-                    <span class="pnl-asset-value ${value >= 0 ? 'positive' : 'negative'}">
-                        ${value >= 0 ? '+' : ''}${formatCurrency(value, pnlCurrency)}
-                    </span>
-                `;
-                breakdownEl.appendChild(assetEl);
-            });
-        }
-    } catch (error) {
-        console.error('renderPnLCard failed:', error);
-        throw error;
-    }
-}
-
-function renderTransactionsTable(transactions) {
-    try {
-        const tbody = document.getElementById('transactions-body');
-        tbody.innerHTML = '';
-
-        transactions.forEach(tx => {
-            const row = document.createElement('tr');
-            const sideClass = tx.side === 'BUY' ? 'badge-buy' : tx.side === 'SELL' ? 'badge-sell' : '';
-            row.innerHTML = `
-                <td>${formatDate(tx.timestamp)}</td>
-                <td><span class="badge badge-${(tx.transaction_type || 'unknown').toLowerCase()}">${tx.transaction_type}</span></td>
-                <td>${tx.side ? `<span class="badge ${sideClass}">${tx.side}</span>` : '-'}</td>
-                <td>${tx.asset}</td>
-                <td>${formatNumber(tx.quantity)}</td>
-                <td>${tx.price ? formatCurrency(tx.price) : '-'}</td>
-                <td>${tx.value ? formatCurrency(tx.value) : '-'}</td>
-                <td>${tx.fee ? formatCurrency(tx.fee, tx.fee_asset || 'USD') : '-'}</td>
-                <td>${tx.wallet || '-'}</td>
-            `;
-            tbody.appendChild(row);
-        });
-
-        document.getElementById('pagination-info').textContent = `Showing ${transactions.length} transactions`;
-    } catch (error) {
-        console.error('renderTransactionsTable failed:', error);
-        throw error;
-    }
-}
-
-function renderReconciliation(data) {
-    try {
-        const transfersContent = document.getElementById('transfers-content');
-        const transferMatches = data.transfer_matches?.matches || [];
-        document.getElementById('transfer-count').textContent = `${transferMatches.length} matched`;
-
-        if (transferMatches.length > 0) {
-            transfersContent.innerHTML = transferMatches.map(match => `
-                <div class="recon-item">
-                    <div class="recon-item-header">
-                        <span class="recon-item-title">${match.asset} - ${formatNumber(match.quantity)}</span>
-                        <span class="recon-item-detail">${formatDate(match.timestamp)}</span>
-                    </div>
-                    <div class="recon-item-detail">From: ${match.source_account || 'Unknown'} → To: ${match.destination_account || 'Unknown'}</div>
-                    <div class="reasons-list">${match.reasons.map(r => `<span class="reason-tag">${r}</span>`).join('')}</div>
-                </div>
-            `).join('');
-        } else {
-            transfersContent.innerHTML = '<p class="empty-state">No internal transfers detected</p>';
-        }
-
-        const duplicatesContent = document.getElementById('duplicates-content');
-        const duplicateGroups = data.duplicate_findings?.groups || [];
-        document.getElementById('duplicate-count').textContent = `${duplicateGroups.length} found`;
-
-        if (duplicateGroups.length > 0) {
-            duplicatesContent.innerHTML = duplicateGroups.map(group => `
-                <div class="recon-item">
-                    <div class="recon-item-header">
-                        <span class="recon-item-title">${group.classification.replace(/_/g, ' ')}</span>
-                        <span class="recon-item-detail">Score: ${group.score}</span>
-                    </div>
-                    <div class="recon-item-detail">${group.transaction_ids.length} transactions: ${group.transaction_ids.slice(0, 3).join(', ')}${group.transaction_ids.length > 3 ? '...' : ''}</div>
-                    <div class="reasons-list">${group.reasons.map(r => `<span class="reason-tag">${r}</span>`).join('')}</div>
-                </div>
-            `).join('');
-        } else {
-            duplicatesContent.innerHTML = '<p class="empty-state">No duplicates detected</p>';
-        }
-
-        const convertsContent = document.getElementById('converts-content');
-        const convertMatches = data.convert_matches?.matches || [];
-        document.getElementById('convert-count').textContent = `${convertMatches.length} found`;
-
-        if (convertMatches.length > 0) {
-            convertsContent.innerHTML = convertMatches.map(match => `
-                <div class="recon-item">
-                    <div class="recon-item-header">
-                        <span class="recon-item-title">${match.input_asset} → ${match.output_asset}</span>
-                        <span class="recon-item-detail">${formatDate(match.timestamp)}</span>
-                    </div>
-                    <div class="recon-item-detail">Sold: ${formatNumber(match.input_quantity)} ${match.input_asset} → Bought: ${formatNumber(match.output_quantity)} ${match.output_asset}</div>
-                    <div class="reasons-list">${match.reasons.map(r => `<span class="reason-tag">${r}</span>`).join('')}</div>
-                </div>
-            `).join('');
-        } else {
-            convertsContent.innerHTML = '<p class="empty-state">No convert events detected</p>';
-        }
-    } catch (error) {
-        console.error('renderReconciliation failed:', error);
-        throw error;
-    }
-}
-
-function renderAccounting(accountingResult) {
-    try {
-        const summaryEvents = document.getElementById('acct-events');
-        const summaryAcquisitions = document.getElementById('acct-acquisitions');
-        const summaryDisposals = document.getElementById('acct-disposals');
-        const summaryLots = document.getElementById('acct-lots');
-        const accountingBody = document.getElementById('accounting-body');
-
-        if (!accountingResult || !accountingResult.summary) {
-            summaryEvents.textContent = '0';
-            summaryAcquisitions.textContent = '0';
-            summaryDisposals.textContent = '0';
-            summaryLots.textContent = '0';
-            accountingBody.innerHTML = '<tr><td colspan="7" class="empty-state">No accounting data available</td></tr>';
-            return;
-        }
-
-        const summary = accountingResult.summary;
-        summaryEvents.textContent = summary.total_events || 0;
-        summaryAcquisitions.textContent = summary.acquisition_events || 0;
-        summaryDisposals.textContent = summary.disposal_events || 0;
-        summaryLots.textContent = summary.total_lots_created || 0;
-
-        const events = accountingResult.events || [];
-        accountingBody.innerHTML = events.map(event => `
-            <tr>
-                <td>${formatDate(event.timestamp)}</td>
-                <td><span class="badge badge-${getAccountingEventClass(event.event_type)}">${event.event_type}</span></td>
-                <td>${event.asset}</td>
-                <td>${formatNumber(event.quantity)}</td>
-            <td>${event.cost_basis ? formatCurrency(event.cost_basis, event.cost_currency || 'USD') : '-'}</td>
-            <td>${event.proceeds ? formatCurrency(event.proceeds, event.proceeds_currency || 'USD') : '-'}</td>
-            <td class="${event.realized_pnl ? (parseFloat(event.realized_pnl) >= 0 ? 'text-positive' : 'text-negative') : ''}">${event.realized_pnl ? formatCurrency(event.realized_pnl, event.pnl_currency || 'USD') : '-'}</td>
-            </tr>
-        `).join('');
-    } catch (error) {
-        console.error('renderAccounting failed:', error);
-        throw error;
-    }
-}
-
-function getAccountingEventClass(type) {
-    const classes = { 'ACQUISITION': 'deposit', 'DISPOSAL': 'withdrawal', 'TRANSFER': 'transfer', 'SWAP': 'swap', 'FEE': 'fee', 'NON_ACCOUNTING': 'unknown' };
-    return classes[type] || 'unknown';
-}
-
-function renderWarnings(data) {
-    try {
-    const warningsList = document.getElementById('warnings-list');
-    const qualityList = document.getElementById('quality-list');
-    const warnings = data.warnings || [];
-    document.getElementById('warning-count').textContent = warnings.length;
-
-    if (warnings.length > 0) {
-        warningsList.innerHTML = warnings.map(w => `
-            <div class="warning-item warning">
-                <div class="warning-icon">
-                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 6V10M10 14H10.01M19 10C19 14.9706 14.9706 19 10 19C5.02944 19 1 14.9706 1 10C1 5.02944 5.02944 1 10 1C14.9706 1 19 5.02944 19 10Z" stroke="#F59E0B" stroke-width="2"/></svg>
-                </div>
-                <div class="warning-content"><div class="warning-message">${w}</div></div>
-            </div>
-        `).join('');
-    } else {
-        warningsList.innerHTML = '<p class="empty-state">No warnings</p>';
-    }
-
-    const accountingWarnings = data.accounting_result?.warnings || [];
-    const qualityIssues = accountingWarnings.map(w => w.message);
-    document.getElementById('quality-count').textContent = qualityIssues.length;
-
-    if (qualityIssues.length > 0) {
-        qualityList.innerHTML = qualityIssues.map(msg => `
-            <div class="warning-item info">
-                <div class="warning-icon">
-                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 6V10M10 14H10.01M19 10C19 14.9706 14.9706 19 10 19C5.02944 19 1 14.9706 1 10C1 5.02944 5.02944 1 10 1C14.9706 1 19 5.02944 19 10Z" stroke="#6366F1" stroke-width="2"/></svg>
-                </div>
-                <div class="warning-content"><div class="warning-message">${msg}</div></div>
-            </div>
-        `).join('');
-    } else {
-        qualityList.innerHTML = '<p class="empty-state">No data quality issues</p>';
-    }
-    } catch (error) {
-        console.error('renderWarnings failed:', error);
-        throw error;
-    }
-}
-
+// ============================================
 // Tabs
+// ============================================
+
 function setupTabs() {
     document.querySelectorAll('.tab').forEach(tab => {
         tab.addEventListener('click', () => {
@@ -585,11 +398,52 @@ function setupTabs() {
             tab.classList.add('active');
             document.querySelectorAll('.tab-pane').forEach(pane => pane.classList.remove('active'));
             document.getElementById(`tab-${tabName}`)?.classList.add('active');
+            state.activeTab = tabName;
         });
     });
 }
 
+function setupSubTabs() {
+    document.querySelectorAll('.sub-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            const subtabName = tab.dataset.subtab;
+            document.querySelectorAll('.sub-tab').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            document.querySelectorAll('.sub-tab-pane').forEach(pane => pane.classList.remove('active'));
+            document.getElementById(`subtab-${subtabName}`)?.classList.add('active');
+            state.activeSubTab = subtabName;
+        });
+    });
+}
+
+function setupTaxYearFilter() {
+    const select = document.getElementById('tax-year-select');
+    if (select) {
+        select.addEventListener('change', () => {
+            const year = select.value;
+            if (state.results) {
+                state.filteredTransactions = filterByTaxYear(state.results.transactions || [], year);
+                renderTransactionsTable(state.filteredTransactions);
+                if (state.activeTab !== 'transactions') {
+                    document.querySelector('[data-tab="transactions"]')?.click();
+                }
+            }
+        });
+    }
+}
+
+function filterByTaxYear(transactions, year) {
+    if (!year) return transactions;
+    return transactions.filter(tx => {
+        const d = new Date(tx.timestamp);
+        return d.getFullYear().toString() === year;
+    });
+}
+
+// ============================================
 // Search
+// ============================================
+
 function setupSearch() {
     const searchInput = document.getElementById('transaction-search');
     const typeFilter = document.getElementById('type-filter');
@@ -622,7 +476,10 @@ function setupSearch() {
     typeFilter?.addEventListener('change', filterTransactions);
 }
 
+// ============================================
 // FAQ Accordion
+// ============================================
+
 function toggleFaq(item) {
     const answer = item.querySelector('.faq-answer');
     const icon = item.querySelector('.faq-question svg');
@@ -645,43 +502,45 @@ function toggleFaq(item) {
     }
 }
 
+// ============================================
 // Export
-function exportResults() {
-    if (!state.results || !state.results.transactions) {
+// ============================================
+
+function exportResults(format) {
+    if (!state.results) {
         showToast('error', 'No Data', 'No results to export.');
         return;
     }
 
-    const transactions = state.results.transactions;
-    const headers = ['Date', 'Type', 'Side', 'Asset', 'Quantity', 'Price', 'Value', 'Fee', 'Fee Asset', 'Wallet'];
-    const csvContent = [
-        headers.join(','),
-        ...transactions.map(tx => [
-            tx.timestamp,
-            tx.transaction_type,
-            tx.side || '',
-            tx.asset,
-            tx.quantity,
-            tx.price || '',
-            tx.value || '',
-            tx.fee || '',
-            tx.fee_asset || '',
-            tx.wallet || ''
-        ].join(','))
-    ].join('\n');
+    const taxYear = elements.taxYearSelect?.value || '';
 
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `kryptledg-results-${new Date().toISOString().split('T')[0]}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    if (format === 'csv') {
+        api.exportResults(state.results, 'csv', taxYear).then(result => {
+            if (result.success) {
+                showToast('success', 'CSV Export', 'Your CSV report is downloading.');
+            } else {
+                showToast('error', 'Export Failed', result.error);
+            }
+        });
+        return;
+    }
 
-    showToast('success', 'Export Complete', 'Results downloaded as CSV.');
+    if (format === 'pdf') {
+        api.exportResults(state.results, 'pdf', taxYear).then(result => {
+            if (result.success) {
+                showToast('success', 'PDF Export', 'Your PDF report is downloading.');
+            } else {
+                showToast('error', 'Export Failed', result.error);
+            }
+        });
+        return;
+    }
 }
 
+// ============================================
 // Toast
+// ============================================
+
 function showToast(type, title, message) {
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
@@ -702,27 +561,556 @@ function showToast(type, title, message) {
     }, 5000);
 }
 
-// Utilities
-function formatDate(dateStr) {
-    if (!dateStr) return '-';
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+// ============================================
+// Render Results
+// ============================================
+
+function renderResults(data) {
+    try {
+        document.getElementById('results-source').textContent = `${safeStr(data.source) || 'Unknown'} - ${safeStr(data.report_type) || 'Unknown Report'}`;
+
+        const summary = data.summary || {};
+        document.getElementById('ov-total').textContent = data.transaction_count || 0;
+        document.getElementById('ov-trades').textContent = summary.trades || 0;
+        document.getElementById('ov-transfers').textContent = summary.transfers || 0;
+        document.getElementById('ov-deposits').textContent = summary.deposits || 0;
+        document.getElementById('ov-withdrawals').textContent = summary.withdrawals || 0;
+        document.getElementById('ov-fees').textContent = summary.fees || 0;
+
+        const acct = data.accounting_result || {};
+        const acctSummary = acct.summary || {};
+        document.getElementById('ov-events').textContent = acctSummary.total_events || 0;
+        document.getElementById('ov-acquisitions').textContent = acctSummary.acquisition_events || 0;
+        document.getElementById('ov-disposals').textContent = acctSummary.disposal_events || 0;
+        document.getElementById('ov-lots').textContent = acctSummary.total_lots_created || 0;
+
+        renderPnLCard(acct);
+        renderTransactionsTable(data.transactions || []);
+        renderReconciliation(data);
+        renderAccounting(acct);
+        renderTaxSummary(acct);
+        renderHoldings(acct);
+        renderMissingBasis(acct);
+        renderExceptions(data, acct);
+        renderAuditTrail(acct);
+    } catch (error) {
+        console.error('renderResults failed:', error);
+        throw error;
+    }
 }
 
-function formatNumber(value) {
-    if (value === null || value === undefined) return '-';
-    const num = parseFloat(value);
-    if (isNaN(num)) return value;
-    if (Math.abs(num) >= 1000000) return (num / 1000000).toFixed(2) + 'M';
-    if (Math.abs(num) >= 1000) return (num / 1000).toFixed(2) + 'K';
-    if (Math.abs(num) < 0.01 && num !== 0) return num.toExponential(2);
-    return num.toLocaleString('en-US', { maximumFractionDigits: 6 });
+// ============================================
+// P&L Card
+// ============================================
+
+function renderPnLCard(accountingResult) {
+    try {
+        const pnlCard = document.getElementById('pnl-card');
+        if (!accountingResult || !accountingResult.summary) {
+            pnlCard.style.display = 'none';
+            return;
+        }
+
+        pnlCard.style.display = 'block';
+        const summary = accountingResult.summary;
+        const totalPnL = summary.total_realized_pnl;
+        const currency = (summary.pnl_currency || 'USD').toString().toUpperCase();
+
+        const pnlTotalEl = document.getElementById('pnl-total');
+        if (totalPnL !== null && totalPnL !== undefined && safeStr(totalPnL) !== null) {
+            const pnlValue = safeNum(totalPnL);
+            pnlTotalEl.innerHTML = (pnlValue >= 0 ? '+' : '') + fmtCurrency(pnlValue, currency);
+            pnlTotalEl.className = 'pnl-value ' + (pnlValue >= 0 ? 'positive' : 'negative');
+        } else {
+            pnlTotalEl.innerHTML = '<span class="unresolved-pill">UNRESOLVED</span>';
+            pnlTotalEl.className = 'pnl-value';
+        }
+
+        const breakdownEl = document.getElementById('pnl-breakdown');
+        breakdownEl.innerHTML = '';
+
+        const realizedPnl = accountingResult.realized_pnl || [];
+        if (realizedPnl.length > 0) {
+            realizedPnl.forEach(pnl => {
+                const assetEl = document.createElement('div');
+                assetEl.className = 'pnl-asset';
+                const value = safeNum(pnl.total_realized_pnl);
+                const pnlCurrency = (pnl.currency || 'USD').toString().toUpperCase();
+                assetEl.innerHTML = `
+                    <span class="pnl-asset-name">${safeStr(pnl.asset) || 'UNKNOWN'}</span>
+                    <span class="pnl-asset-value ${value !== null && value >= 0 ? 'positive' : 'negative'}">
+                        ${value !== null && value >= 0 ? '+' : ''}${fmtCurrency(value, pnlCurrency)}
+                    </span>
+                `;
+                breakdownEl.appendChild(assetEl);
+            });
+        }
+    } catch (error) {
+        console.error('renderPnLCard failed:', error);
+        throw error;
+    }
 }
 
-function formatCurrency(value, currency = 'USD') {
-    if (value === null || value === undefined) return '-';
-    const num = parseFloat(value);
-    if (isNaN(num)) return value;
-    const safeCurrency = (currency || 'USD').toString().toUpperCase();
-    return num.toLocaleString('en-US', { style: 'currency', currency: safeCurrency, minimumFractionDigits: 2, maximumFractionDigits: 2 });
+// ============================================
+// Transactions
+// ============================================
+
+function renderTransactionsTable(transactions) {
+    try {
+        const tbody = document.getElementById('transactions-body');
+        tbody.innerHTML = '';
+
+        if (!transactions || transactions.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="9" class="empty-state">No transactions found</td></tr>';
+            document.getElementById('pagination-info').textContent = 'Showing 0 transactions';
+            return;
+        }
+
+        transactions.forEach(tx => {
+            const row = document.createElement('tr');
+            const sideClass = tx.side === 'BUY' ? 'badge-buy' : tx.side === 'SELL' ? 'badge-sell' : '';
+            row.innerHTML = `
+                <td>${fmtDate(tx.timestamp)}</td>
+                <td>${fmtBadge(tx.transaction_type)}</td>
+                <td>${tx.side ? `<span class="badge ${sideClass}">${tx.side}</span>` : '-'}</td>
+                <td>${safeStr(tx.asset) || '-'}</td>
+                <td>${fmtNumber(tx.quantity)}</td>
+                <td>${tx.price !== null && tx.price !== undefined ? fmtCurrency(tx.price, tx.price_currency || 'USD') : '<span class="unresolved">UNRESOLVED</span>'}</td>
+                <td>${tx.value !== null && tx.value !== undefined ? fmtCurrency(tx.value, tx.value_currency || 'USD') : '<span class="unresolved">UNRESOLVED</span>'}</td>
+                <td>${tx.fee !== null && tx.fee !== undefined ? fmtCurrency(tx.fee, tx.fee_asset || 'USD') : '<span class="unresolved">UNRESOLVED</span>'}</td>
+                <td>${safeStr(tx.wallet) || '-'}</td>
+            `;
+            tbody.appendChild(row);
+        });
+
+        document.getElementById('pagination-info').textContent = `Showing ${transactions.length} transactions`;
+    } catch (error) {
+        console.error('renderTransactionsTable failed:', error);
+        throw error;
+    }
+}
+
+// ============================================
+// Reconciliation
+// ============================================
+
+function renderReconciliation(data) {
+    try {
+        const transfersContent = document.getElementById('transfers-content');
+        const transferMatches = data.transfer_matches?.matches || [];
+        document.getElementById('transfer-count').textContent = `${transferMatches.length} matched`;
+
+        if (transferMatches.length > 0) {
+            transfersContent.innerHTML = transferMatches.map(match => `
+                <div class="recon-item">
+                    <div class="recon-item-header">
+                        <span class="recon-item-title">${safeStr(match.asset) || 'UNKNOWN'} - ${fmtNumber(match.quantity)}</span>
+                        <span class="recon-item-detail">${fmtDate(match.timestamp)}</span>
+                    </div>
+                    <div class="recon-item-detail">From: ${safeStr(match.source_account) || 'Unknown'} → To: ${safeStr(match.destination_account) || 'Unknown'}</div>
+                    <div class="reasons-list">${(match.reasons || []).map(r => `<span class="reason-tag">${safeStr(r) || r}</span>`).join('')}</div>
+                </div>
+            `).join('');
+        } else {
+            transfersContent.innerHTML = '<p class="empty-state">No internal transfers detected</p>';
+        }
+
+        const duplicatesContent = document.getElementById('duplicates-content');
+        const duplicateGroups = data.duplicate_findings?.groups || [];
+        document.getElementById('duplicate-count').textContent = `${duplicateGroups.length} found`;
+
+        if (duplicateGroups.length > 0) {
+            duplicatesContent.innerHTML = duplicateGroups.map(group => `
+                <div class="recon-item">
+                    <div class="recon-item-header">
+                        <span class="recon-item-title">${safeStr(group.classification)?.replace(/_/g, ' ') || 'UNKNOWN'}</span>
+                        <span class="recon-item-detail">Score: ${group.score !== undefined ? group.score : 'UNRESOLVED'}</span>
+                    </div>
+                    <div class="recon-item-detail">${group.transaction_ids?.length || 0} transactions: ${(group.transaction_ids || []).slice(0, 3).join(', ')}${group.transaction_ids?.length > 3 ? '...' : ''}</div>
+                    <div class="reasons-list">${(group.reasons || []).map(r => `<span class="reason-tag">${safeStr(r) || r}</span>`).join('')}</div>
+                </div>
+            `).join('');
+        } else {
+            duplicatesContent.innerHTML = '<p class="empty-state">No duplicates detected</p>';
+        }
+
+        const convertsContent = document.getElementById('converts-content');
+        const convertMatches = data.convert_matches?.matches || [];
+        document.getElementById('convert-count').textContent = `${convertMatches.length} found`;
+
+        if (convertMatches.length > 0) {
+            convertsContent.innerHTML = convertMatches.map(match => `
+                <div class="recon-item">
+                    <div class="recon-item-header">
+                        <span class="recon-item-title">${safeStr(match.input_asset) || 'UNKNOWN'} → ${safeStr(match.output_asset) || 'UNKNOWN'}</span>
+                        <span class="recon-item-detail">${fmtDate(match.timestamp)}</span>
+                    </div>
+                    <div class="recon-item-detail">Sold: ${fmtNumber(match.input_quantity)} ${safeStr(match.input_asset) || 'UNKNOWN'} → Bought: ${fmtNumber(match.output_quantity)} ${safeStr(match.output_asset) || 'UNKNOWN'}</div>
+                    <div class="reasons-list">${(match.reasons || []).map(r => `<span class="reason-tag">${safeStr(r) || r}</span>`).join('')}</div>
+                </div>
+            `).join('');
+        } else {
+            convertsContent.innerHTML = '<p class="empty-state">No convert events detected</p>';
+        }
+    } catch (error) {
+        console.error('renderReconciliation failed:', error);
+        throw error;
+    }
+}
+
+// ============================================
+// Accounting (Events, Lots, Consumptions)
+// ============================================
+
+function renderAccounting(accountingResult) {
+    try {
+        const summaryEvents = document.getElementById('acct-events');
+        const summaryAcquisitions = document.getElementById('acct-acquisitions');
+        const summaryDisposals = document.getElementById('acct-disposals');
+        const summaryLots = document.getElementById('acct-lots');
+
+        if (!accountingResult || !accountingResult.summary) {
+            summaryEvents.textContent = '0';
+            summaryAcquisitions.textContent = '0';
+            summaryDisposals.textContent = '0';
+            summaryLots.textContent = '0';
+            document.getElementById('accounting-body').innerHTML = '<tr><td colspan="8" class="empty-state">No accounting data available</td></tr>';
+            document.getElementById('lots-body').innerHTML = '<tr><td colspan="7" class="empty-state">No lots data available</td></tr>';
+            document.getElementById('consumptions-body').innerHTML = '<tr><td colspan="9" class="empty-state">No consumptions data available</td></tr>';
+            return;
+        }
+
+        const summary = accountingResult.summary;
+        summaryEvents.textContent = summary.total_events || 0;
+        summaryAcquisitions.textContent = summary.acquisition_events || 0;
+        summaryDisposals.textContent = summary.disposal_events || 0;
+        summaryLots.textContent = summary.total_lots_created || 0;
+
+        // Events
+        const events = accountingResult.events || [];
+        const accountingBody = document.getElementById('accounting-body');
+        if (events.length > 0) {
+            accountingBody.innerHTML = events.map(event => `
+                <tr>
+                    <td>${fmtDate(event.timestamp)}</td>
+                    <td>${fmtBadge(event.event_type)}</td>
+                    <td>${safeStr(event.asset) || '-'}</td>
+                    <td>${fmtNumber(event.quantity)}</td>
+                    <td>${event.cost_basis !== null && event.cost_basis !== undefined ? fmtCurrency(event.cost_basis, event.cost_currency || 'USD') : '<span class="unresolved">UNRESOLVED</span>'}</td>
+                    <td>${event.proceeds !== null && event.proceeds !== undefined ? fmtCurrency(event.proceeds, event.proceeds_currency || 'USD') : '<span class="unresolved">UNRESOLVED</span>'}</td>
+                    <td>${event.realized_pnl !== null && event.realized_pnl !== undefined ? (safeNum(event.realized_pnl) >= 0 ? '<span class="text-positive">+' : '<span class="text-negative">') + fmtCurrency(event.realized_pnl, event.pnl_currency || 'USD') + '</span>' : '<span class="unresolved">UNRESOLVED</span>'}</td>
+                    <td>${safeStr(event.source_transaction_id) || '-'}</td>
+                </tr>
+            `).join('');
+        } else {
+            accountingBody.innerHTML = '<tr><td colspan="8" class="empty-state">No events found</td></tr>';
+        }
+
+        // Lots
+        const lots = accountingResult.lots || [];
+        const lotsBody = document.getElementById('lots-body');
+        if (lots.length > 0) {
+            lotsBody.innerHTML = lots.map(lot => `
+                <tr>
+                    <td>${safeStr(lot.lot_id) || '-'}</td>
+                    <td>${safeStr(lot.asset) || '-'}</td>
+                    <td>${fmtNumber(lot.acquired_quantity)}</td>
+                    <td>${fmtNumber(lot.remaining_quantity)}</td>
+                    <td>${lot.unit_cost !== null && lot.unit_cost !== undefined ? fmtCurrency(lot.unit_cost, 'USD') : '<span class="unresolved">UNRESOLVED</span>'}</td>
+                    <td>${fmtDate(lot.acquired_timestamp)}</td>
+                    <td>${safeStr(lot.source_transaction_id) || '-'}</td>
+                </tr>
+            `).join('');
+        } else {
+            lotsBody.innerHTML = '<tr><td colspan="7" class="empty-state">No lots found</td></tr>';
+        }
+
+        // Consumptions
+        const consumptions = accountingResult.consumptions || [];
+        const consumptionsBody = document.getElementById('consumptions-body');
+        if (consumptions.length > 0) {
+            consumptionsBody.innerHTML = consumptions.map(c => `
+                <tr>
+                    <td>${safeStr(c.consumption_id) || '-'}</td>
+                    <td>${safeStr(c.lot_id) || '-'}</td>
+                    <td>${safeStr(c.disposal_event_id) || '-'}</td>
+                    <td>${safeStr(c.asset) || '-'}</td>
+                    <td>${fmtNumber(c.quantity_consumed)}</td>
+                    <td>${c.unit_cost !== null && c.unit_cost !== undefined ? fmtCurrency(c.unit_cost, 'USD') : '<span class="unresolved">UNRESOLVED</span>'}</td>
+                    <td>${fmtCurrency(c.cost_allocated, 'USD')}</td>
+                    <td>${fmtCurrency(c.disposal_proceeds, 'USD')}</td>
+                    <td>${fmtCurrency(c.realized_pnl, 'USD')}</td>
+                </tr>
+            `).join('');
+        } else {
+            consumptionsBody.innerHTML = '<tr><td colspan="9" class="empty-state">No consumptions found</td></tr>';
+        }
+    } catch (error) {
+        console.error('renderAccounting failed:', error);
+        throw error;
+    }
+}
+
+// ============================================
+// Tax Summary (P&L, Capital Gains, Income)
+// ============================================
+
+function renderTaxSummary(accountingResult) {
+    try {
+        const pnlTotalEl = document.getElementById('tax-pnl-total');
+        const pnlBreakdownEl = document.getElementById('tax-pnl-breakdown');
+        const pnlBadge = document.getElementById('pnl-currency-badge');
+        const realizedPnl = accountingResult.realized_pnl || [];
+        const totalRealizedPnl = accountingResult.summary?.total_realized_pnl;
+        const pnlCurrency = (accountingResult.summary?.pnl_currency || 'USD').toString().toUpperCase();
+
+        if (pnlBadge) pnlBadge.textContent = pnlCurrency;
+
+        if (totalRealizedPnl !== null && totalRealizedPnl !== undefined && safeStr(totalRealizedPnl) !== null) {
+            const pnlValue = safeNum(totalRealizedPnl);
+            pnlTotalEl.innerHTML = (pnlValue >= 0 ? '+' : '') + fmtCurrency(pnlValue, pnlCurrency);
+            pnlTotalEl.className = 'pnl-value ' + (pnlValue >= 0 ? 'positive' : 'negative');
+        } else {
+            pnlTotalEl.innerHTML = '<span class="unresolved-pill">UNRESOLVED</span>';
+            pnlTotalEl.className = 'pnl-value';
+        }
+
+        pnlBreakdownEl.innerHTML = '';
+        if (realizedPnl.length > 0) {
+            realizedPnl.forEach(pnl => {
+                const el = document.createElement('div');
+                el.className = 'pnl-asset';
+                const value = safeNum(pnl.total_realized_pnl);
+                const c = (pnl.currency || 'USD').toString().toUpperCase();
+                el.innerHTML = `
+                    <span class="pnl-asset-name">${safeStr(pnl.asset) || 'UNKNOWN'}</span>
+                    <span class="pnl-asset-value ${value !== null && value >= 0 ? 'positive' : 'negative'}">
+                        ${value !== null && value >= 0 ? '+' : ''}${fmtCurrency(value, c)}
+                    </span>
+                `;
+                pnlBreakdownEl.appendChild(el);
+            });
+        }
+
+        // Capital Gains
+        const events = accountingResult.events || [];
+        const disposals = events.filter(e => e.event_type === 'DISPOSAL');
+        const capitalGainsBody = document.getElementById('capital-gains-body');
+        if (disposals.length > 0) {
+            capitalGainsBody.innerHTML = disposals.map(e => `
+                <tr>
+                    <td>${safeStr(e.event_id) || '-'}</td>
+                    <td>${fmtDate(e.timestamp)}</td>
+                    <td>${safeStr(e.asset) || '-'}</td>
+                    <td>${fmtNumber(e.quantity)}</td>
+                    <td>${e.cost_basis !== null && e.cost_basis !== undefined ? fmtCurrency(e.cost_basis, e.cost_currency || 'USD') : '<span class="unresolved">UNRESOLVED</span>'}</td>
+                    <td>${e.proceeds !== null && e.proceeds !== undefined ? fmtCurrency(e.proceeds, e.proceeds_currency || 'USD') : '<span class="unresolved">UNRESOLVED</span>'}</td>
+                    <td>${e.realized_pnl !== null && e.realized_pnl !== undefined ? (safeNum(e.realized_pnl) >= 0 ? '<span class="text-positive">+' : '<span class="text-negative">') + fmtCurrency(e.realized_pnl, e.pnl_currency || 'USD') + '</span>' : '<span class="unresolved">UNRESOLVED</span>'}</td>
+                    <td>${fmtBadge(e.event_type)}</td>
+                </tr>
+            `).join('');
+        } else {
+            capitalGainsBody.innerHTML = '<tr><td colspan="8" class="empty-state">No capital gains data</td></tr>';
+        }
+
+        // Income
+        const acquisitions = events.filter(e => e.event_type === 'ACQUISITION' || e.event_type === 'REWARD' || e.event_type === 'FEE');
+        const incomeBody = document.getElementById('income-body');
+        if (acquisitions.length > 0) {
+            incomeBody.innerHTML = acquisitions.map(e => `
+                <tr>
+                    <td>${safeStr(e.event_id) || '-'}</td>
+                    <td>${fmtDate(e.timestamp)}</td>
+                    <td>${safeStr(e.asset) || '-'}</td>
+                    <td>${fmtNumber(e.quantity)}</td>
+                    <td>${e.cost_basis !== null && e.cost_basis !== undefined ? fmtCurrency(e.cost_basis, e.cost_currency || 'USD') : '<span class="unresolved">UNRESOLVED</span>'}</td>
+                    <td>${fmtBadge(e.event_type)}</td>
+                </tr>
+            `).join('');
+        } else {
+            incomeBody.innerHTML = '<tr><td colspan="6" class="empty-state">No income data</td></tr>';
+        }
+    } catch (error) {
+        console.error('renderTaxSummary failed:', error);
+        throw error;
+    }
+}
+
+// ============================================
+// Holdings
+// ============================================
+
+function renderHoldings(accountingResult) {
+    try {
+        const lots = accountingResult.lots || [];
+        const holdingsBody = document.getElementById('holdings-body');
+
+        // Aggregate holdings by asset
+        const holdingsMap = {};
+        lots.forEach(lot => {
+            const asset = safeStr(lot.asset) || 'UNKNOWN';
+            if (!holdingsMap[asset]) {
+                holdingsMap[asset] = { remainingQty: 0, lotCount: 0, totalCost: 0, unitCosts: [] };
+            }
+            holdingsMap[asset].remainingQty += safeNum(lot.remaining_quantity) || 0;
+            holdingsMap[asset].lotCount++;
+            if (lot.unit_cost !== null && lot.unit_cost !== undefined) {
+                holdingsMap[asset].totalCost += safeNum(lot.unit_cost) * (safeNum(lot.remaining_quantity) || 0);
+                holdingsMap[asset].unitCosts.push(safeNum(lot.unit_cost));
+            }
+        });
+
+        const holdings = Object.entries(holdingsMap).filter(([_, h]) => h.remainingQty > 0.000001);
+
+        if (holdings.length > 0) {
+            holdingsBody.innerHTML = holdings.map(([asset, h]) => {
+                const avgCost = h.unitCosts.length > 0 ? h.unitCosts.reduce((a, b) => a + b, 0) / h.unitCosts.length : null;
+                return `
+                    <tr>
+                        <td>${asset}</td>
+                        <td>${fmtNumber(h.remainingQty)}</td>
+                        <td>${h.lotCount}</td>
+                        <td>${h.totalCost > 0 ? fmtCurrency(h.totalCost) : '<span class="unresolved">UNRESOLVED</span>'}</td>
+                        <td>${avgCost !== null ? fmtCurrency(avgCost) : '<span class="unresolved">UNRESOLVED</span>'}</td>
+                    </tr>
+                `;
+            }).join('');
+        } else {
+            holdingsBody.innerHTML = '<tr><td colspan="5" class="empty-state">No holdings found</td></tr>';
+        }
+    } catch (error) {
+        console.error('renderHoldings failed:', error);
+        throw error;
+    }
+}
+
+// ============================================
+// Missing Cost Basis
+// ============================================
+
+function renderMissingBasis(accountingResult) {
+    try {
+        const events = accountingResult.events || [];
+        const missingBasis = events.filter(e => e.event_type === 'DISPOSAL' && (e.cost_basis === null || e.cost_basis === undefined));
+        const missingBody = document.getElementById('missing-basis-body');
+
+        if (missingBasis.length > 0) {
+            missingBody.innerHTML = missingBasis.map(e => `
+                <tr>
+                    <td>${safeStr(e.event_id) || '-'}</td>
+                    <td>${fmtDate(e.timestamp)}</td>
+                    <td>${safeStr(e.asset) || '-'}</td>
+                    <td>${fmtNumber(e.quantity)}</td>
+                    <td>${e.proceeds !== null && e.proceeds !== undefined ? fmtCurrency(e.proceeds, e.proceeds_currency || 'USD') : '<span class="unresolved">UNRESOLVED</span>'}</td>
+                    <td>${safeStr(e.source_transaction_id) || '-'}</td>
+                </tr>
+            `).join('');
+        } else {
+            missingBody.innerHTML = '<tr><td colspan="6" class="empty-state">All disposals have cost basis</td></tr>';
+        }
+    } catch (error) {
+        console.error('renderMissingBasis failed:', error);
+        throw error;
+    }
+}
+
+// ============================================
+// Exceptions & Review
+// ============================================
+
+function renderExceptions(data, accountingResult) {
+    try {
+        // Processing warnings
+        const warnings = data.warnings || [];
+        const procWarningsList = document.getElementById('proc-warnings-list');
+        document.getElementById('proc-warning-count').textContent = warnings.length;
+
+        if (warnings.length > 0) {
+            procWarningsList.innerHTML = warnings.map(w => `
+                <div class="warning-item warning">
+                    <div class="warning-icon">
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 6V10M10 14H10.01M19 10C19 14.9706 14.9706 19 10 19C5.02944 19 1 14.9706 1 10C1 5.02944 5.02944 1 10 1C14.9706 1 19 5.02944 19 10Z" stroke="#F59E0B" stroke-width="2"/></svg>
+                    </div>
+                    <div class="warning-content"><div class="warning-message">${safeStr(w) || 'UNKNOWN'}</div></div>
+                </div>
+            `).join('');
+        } else {
+            procWarningsList.innerHTML = '<p class="empty-state">No processing warnings</p>';
+        }
+
+        // Data quality issues
+        const accountingWarnings = accountingResult.warnings || [];
+        const qualityIssuesList = document.getElementById('quality-issues-list');
+        document.getElementById('quality-issue-count').textContent = accountingWarnings.length;
+
+        if (accountingWarnings.length > 0) {
+            qualityIssuesList.innerHTML = accountingWarnings.map(w => `
+                <div class="warning-item info">
+                    <div class="warning-icon">
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 6V10M10 14H10.01M19 10C19 14.9706 14.9706 19 10 19C5.02944 19 1 14.9706 1 10C1 5.02944 5.02944 1 10 1C14.9706 1 19 5.02944 19 10Z" stroke="#6366F1" stroke-width="2"/></svg>
+                    </div>
+                    <div class="warning-content">
+                        <div class="warning-message">${safeStr(w.message) || 'UNKNOWN'}</div>
+                        ${w.source_transaction_id ? `<div class="warning-detail">Source: ${safeStr(w.source_transaction_id)}</div>` : ''}
+                    </div>
+                </div>
+            `).join('');
+        } else {
+            qualityIssuesList.innerHTML = '<p class="empty-state">No data quality issues</p>';
+        }
+
+        // Errors
+        const errors = data.errors || (accountingResult.errors || []);
+        const errorsList = document.getElementById('errors-list');
+        document.getElementById('error-count').textContent = errors.length;
+
+        if (errors.length > 0) {
+            errorsList.innerHTML = errors.map(e => `
+                <div class="warning-item error">
+                    <div class="warning-icon">
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 6V10M10 14H10.01M19 10C19 14.9706 14.9706 19 10 19C5.02944 19 1 14.9706 1 10C1 5.02944 5.02944 1 10 1C14.9706 1 19 5.02944 19 10Z" stroke="#EF4444" stroke-width="2"/></svg>
+                    </div>
+                    <div class="warning-content"><div class="warning-message">${safeStr(e.message || e) || 'UNKNOWN'}</div></div>
+                </div>
+            `).join('');
+        } else {
+            errorsList.innerHTML = '<p class="empty-state">No errors</p>';
+        }
+    } catch (error) {
+        console.error('renderExceptions failed:', error);
+        throw error;
+    }
+}
+
+// ============================================
+// Audit Trail
+// ============================================
+
+function renderAuditTrail(accountingResult) {
+    try {
+        const events = accountingResult.events || [];
+        const auditBody = document.getElementById('audit-body');
+
+        if (events.length > 0) {
+            auditBody.innerHTML = events.map(e => `
+                <tr>
+                    <td>${safeStr(e.event_id) || '-'}</td>
+                    <td>${fmtDate(e.timestamp)}</td>
+                    <td>${fmtBadge(e.event_type)}</td>
+                    <td>${safeStr(e.asset) || '-'}</td>
+                    <td>${fmtNumber(e.quantity)}</td>
+                    <td>${e.cost_basis !== null && e.cost_basis !== undefined ? fmtCurrency(e.cost_basis, e.cost_currency || 'USD') : '<span class="unresolved">UNRESOLVED</span>'}</td>
+                    <td>${e.proceeds !== null && e.proceeds !== undefined ? fmtCurrency(e.proceeds, e.proceeds_currency || 'USD') : '<span class="unresolved">UNRESOLVED</span>'}</td>
+                    <td>${e.realized_pnl !== null && e.realized_pnl !== undefined ? (safeNum(e.realized_pnl) >= 0 ? '<span class="text-positive">+' : '<span class="text-negative">') + fmtCurrency(e.realized_pnl, e.pnl_currency || 'USD') + '</span>' : '<span class="unresolved">UNRESOLVED</span>'}</td>
+                    <td>${e.linked_lot_ids && e.linked_lot_ids.length > 0 ? e.linked_lot_ids.join(', ') : '-'}</td>
+                    <td>${safeStr(e.source_transaction_id) || '-'}</td>
+                </tr>
+            `).join('');
+        } else {
+            auditBody.innerHTML = '<tr><td colspan="10" class="empty-state">No audit trail data</td></tr>';
+        }
+    } catch (error) {
+        console.error('renderAuditTrail failed:', error);
+        throw error;
+    }
 }

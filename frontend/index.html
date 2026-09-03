@@ -118,18 +118,15 @@
                                     <div class="mock-stats">
                                         <div class="mock-stat">
                                             <span class="stat-label">Total Transactions</span>
-                                            <span class="stat-value">1,247</span>
-                                            <span class="stat-change positive">+12%</span>
+                                            <span class="stat-value">—</span>
                                         </div>
                                         <div class="mock-stat">
                                             <span class="stat-label">Realized P&L</span>
-                                            <span class="stat-value positive">+$12,847</span>
-                                            <span class="stat-change positive">+8.3%</span>
+                                            <span class="stat-value">—</span>
                                         </div>
                                         <div class="mock-stat">
                                             <span class="stat-label">Unrealized</span>
-                                            <span class="stat-value">-$2,134</span>
-                                            <span class="stat-change negative">-1.2%</span>
+                                            <span class="stat-value">—</span>
                                         </div>
                                     </div>
                                     <div class="mock-chart-area">
@@ -498,13 +495,25 @@
                             <span class="results-source" id="results-source"></span>
                         </div>
                         <div class="results-actions">
+                            <select id="tax-year-select" class="form-select form-select-sm">
+                                <option value="">All Tax Years</option>
+                                <option value="2026">2026</option>
+                                <option value="2025">2025</option>
+                                <option value="2024">2024</option>
+                                <option value="2023">2023</option>
+                                <option value="2022">2022</option>
+                            </select>
                             <button class="btn btn-ghost" onclick="navigateTo('upload')">
                                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 12L6 8L10 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
                                 New Upload
                             </button>
-                            <button class="btn btn-primary" onclick="exportResults()">
+                            <button class="btn btn-primary" onclick="exportResults('csv')">
                                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M14 10V12.6667C14 13.0203 13.8595 13.3594 13.6095 13.6095C13.3594 13.8595 13.0203 14 12.6667 14H3.33333C2.97971 14 2.64057 13.8595 2.39052 13.6095C2.14048 13.3594 2 13.0203 2 12.6667V10" stroke="currentColor" stroke-width="1.5"/><path d="M4.66667 6.66667L8 10L11.3333 6.66667" stroke="currentColor" stroke-width="1.5"/><path d="M8 10V2" stroke="currentColor" stroke-width="1.5"/></svg>
                                 Export CSV
+                            </button>
+                            <button class="btn btn-primary" onclick="exportResults('pdf')">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 2H10L14 6V14H6V2Z" stroke="currentColor" stroke-width="1.5"/><path d="M10 2V6H14" stroke="currentColor" stroke-width="1.5"/><path d="M6 6H10L14 10V12.5H6V6Z" stroke="currentColor" stroke-width="1.5"/></svg>
+                                Export PDF
                             </button>
                         </div>
                     </div>
@@ -551,14 +560,87 @@
                     </div>
 
                     <div class="results-tabs">
-                        <button class="tab active" data-tab="transactions">Transactions</button>
+                        <button class="tab active" data-tab="overview">Overview</button>
+                        <button class="tab" data-tab="transactions">Transactions</button>
                         <button class="tab" data-tab="reconciliation">Reconciliation</button>
                         <button class="tab" data-tab="accounting">Accounting</button>
-                        <button class="tab" data-tab="warnings">Warnings</button>
+                        <button class="tab" data-tab="tax-summary">Tax Summary</button>
+                        <button class="tab" data-tab="holdings">Holdings</button>
+                        <button class="tab" data-tab="missing-basis">Missing Basis</button>
+                        <button class="tab" data-tab="exceptions">Exceptions</button>
+                        <button class="tab" data-tab="audit-trail">Audit Trail</button>
                     </div>
 
                     <div class="tab-content">
-                        <div class="tab-pane active" id="tab-transactions">
+                        <div class="tab-pane active" id="tab-overview">
+                            <div class="overview-grid">
+                                <div class="overview-card">
+                                    <h3>Processing Summary</h3>
+                                    <div class="summary-cards" id="overview-summary-cards">
+                                        <div class="summary-card">
+                                            <span class="card-label">Total Transactions</span>
+                                            <span class="card-value" id="ov-total">0</span>
+                                        </div>
+                                        <div class="summary-card">
+                                            <span class="card-label">Trades</span>
+                                            <span class="card-value" id="ov-trades">0</span>
+                                        </div>
+                                        <div class="summary-card">
+                                            <span class="card-label">Transfers</span>
+                                            <span class="card-value" id="ov-transfers">0</span>
+                                        </div>
+                                        <div class="summary-card">
+                                            <span class="card-label">Deposits</span>
+                                            <span class="card-value" id="ov-deposits">0</span>
+                                        </div>
+                                        <div class="summary-card">
+                                            <span class="card-label">Withdrawals</span>
+                                            <span class="card-value" id="ov-withdrawals">0</span>
+                                        </div>
+                                        <div class="summary-card">
+                                            <span class="card-label">Fees</span>
+                                            <span class="card-value" id="ov-fees">0</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="overview-card">
+                                    <h3>Accounting Summary</h3>
+                                    <div class="summary-cards" id="overview-acct-cards">
+                                        <div class="summary-card">
+                                            <span class="card-label">Total Events</span>
+                                            <span class="card-value" id="ov-events">0</span>
+                                        </div>
+                                        <div class="summary-card">
+                                            <span class="card-label">Acquisitions</span>
+                                            <span class="card-value" id="ov-acquisitions">0</span>
+                                        </div>
+                                        <div class="summary-card">
+                                            <span class="card-label">Disposals</span>
+                                            <span class="card-value" id="ov-disposals">0</span>
+                                        </div>
+                                        <div class="summary-card">
+                                            <span class="card-label">Lots Created</span>
+                                            <span class="card-value" id="ov-lots">0</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="pnl-card" id="pnl-card">
+                                <div class="pnl-header">
+                                    <h3>Realized Profit & Loss</h3>
+                                    <span class="pnl-badge">FIFO</span>
+                                </div>
+                                <div class="pnl-content">
+                                    <div class="pnl-total">
+                                        <span class="pnl-label">Total Realized P&L</span>
+                                        <span class="pnl-value" id="pnl-total">UNRESOLVED</span>
+                                    </div>
+                                    <div class="pnl-breakdown" id="pnl-breakdown"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="tab-pane" id="tab-transactions">
                             <div class="table-container">
                                 <div class="table-toolbar">
                                     <div class="table-search">
@@ -635,62 +717,257 @@
                         </div>
 
                         <div class="tab-pane" id="tab-accounting">
-                            <div class="accounting-sections">
-                                <div class="accounting-summary">
-                                    <div class="summary-card">
-                                        <span class="card-label">Total Events</span>
-                                        <span class="card-value" id="acct-events">0</span>
-                                    </div>
-                                    <div class="summary-card">
-                                        <span class="card-label">Acquisitions</span>
-                                        <span class="card-value" id="acct-acquisitions">0</span>
-                                    </div>
-                                    <div class="summary-card">
-                                        <span class="card-label">Disposals</span>
-                                        <span class="card-value" id="acct-disposals">0</span>
-                                    </div>
-                                    <div class="summary-card">
-                                        <span class="card-label">Lots Created</span>
-                                        <span class="card-value" id="acct-lots">0</span>
+                            <div class="accounting-tabs">
+                                <button class="sub-tab active" data-subtab="events">Events</button>
+                                <button class="sub-tab" data-subtab="lots">FIFO Lots</button>
+                                <button class="sub-tab" data-subtab="consumptions">Consumptions</button>
+                            </div>
+                            <div class="sub-tab-content">
+                                <div class="sub-tab-pane active" id="subtab-events">
+                                    <div class="accounting-sections">
+                                        <div class="accounting-summary">
+                                            <div class="summary-card">
+                                                <span class="card-label">Total Events</span>
+                                                <span class="card-value" id="acct-events">0</span>
+                                            </div>
+                                            <div class="summary-card">
+                                                <span class="card-label">Acquisitions</span>
+                                                <span class="card-value" id="acct-acquisitions">0</span>
+                                            </div>
+                                            <div class="summary-card">
+                                                <span class="card-label">Disposals</span>
+                                                <span class="card-value" id="acct-disposals">0</span>
+                                            </div>
+                                            <div class="summary-card">
+                                                <span class="card-label">Lots Created</span>
+                                                <span class="card-value" id="acct-lots">0</span>
+                                            </div>
+                                        </div>
+                                        <div class="table-container">
+                                            <h4>Accounting Events</h4>
+                                            <div class="table-wrapper">
+                                                <table class="data-table" id="accounting-table">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Date</th>
+                                                            <th>Type</th>
+                                                            <th>Asset</th>
+                                                            <th>Quantity</th>
+                                                            <th>Cost Basis</th>
+                                                            <th>Proceeds</th>
+                                                            <th>Realized P&L</th>
+                                                            <th>Source Tx</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody id="accounting-body"></tbody>
+                                                </table>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
+                                <div class="sub-tab-pane" id="subtab-lots">
+                                    <div class="table-container">
+                                        <h4>FIFO Lots</h4>
+                                        <div class="table-wrapper">
+                                            <table class="data-table" id="lots-table">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Lot ID</th>
+                                                        <th>Asset</th>
+                                                        <th>Acquired Qty</th>
+                                                        <th>Remaining Qty</th>
+                                                        <th>Unit Cost</th>
+                                                        <th>Acquired Date</th>
+                                                        <th>Source Tx</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="lots-body"></tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="sub-tab-pane" id="subtab-consumptions">
+                                    <div class="table-container">
+                                        <h4>Lot Consumptions</h4>
+                                        <div class="table-wrapper">
+                                            <table class="data-table" id="consumptions-table">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Consumption ID</th>
+                                                        <th>Lot ID</th>
+                                                        <th>Disposal Event</th>
+                                                        <th>Asset</th>
+                                                        <th>Qty Consumed</th>
+                                                        <th>Unit Cost</th>
+                                                        <th>Cost Allocated</th>
+                                                        <th>Disposal Proceeds</th>
+                                                        <th>Realized P&L</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="consumptions-body"></tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="tab-pane" id="tab-tax-summary">
+                            <div class="tax-sections">
+                                <div class="tax-section">
+                                    <div class="section-header-inline">
+                                        <h3>Realized P&L</h3>
+                                        <span class="pnl-badge" id="pnl-currency-badge">USD</span>
+                                    </div>
+                                    <div class="pnl-content">
+                                        <div class="pnl-total">
+                                            <span class="pnl-label">Total Realized P&L</span>
+                                            <span class="pnl-value" id="tax-pnl-total">UNRESOLVED</span>
+                                        </div>
+                                        <div class="pnl-breakdown" id="tax-pnl-breakdown"></div>
+                                    </div>
+                                </div>
+                                <div class="tax-section">
+                                    <h3>Capital Gains</h3>
+                                    <div class="table-container">
+                                        <div class="table-wrapper">
+                                            <table class="data-table" id="capital-gains-table">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Event ID</th>
+                                                        <th>Date</th>
+                                                        <th>Asset</th>
+                                                        <th>Quantity</th>
+                                                        <th>Cost Basis</th>
+                                                        <th>Proceeds</th>
+                                                        <th>Realized P&L</th>
+                                                        <th>Type</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="capital-gains-body"></tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="tax-section">
+                                    <h3>Income</h3>
+                                    <div class="table-container">
+                                        <div class="table-wrapper">
+                                            <table class="data-table" id="income-table">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Event ID</th>
+                                                        <th>Date</th>
+                                                        <th>Asset</th>
+                                                        <th>Quantity</th>
+                                                        <th>Fair Market Value</th>
+                                                        <th>Type</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="income-body"></tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="tab-pane" id="tab-holdings">
+                            <div class="holdings-section">
+                                <h3>Current Holdings</h3>
                                 <div class="table-container">
-                                    <h4>Accounting Events</h4>
                                     <div class="table-wrapper">
-                                        <table class="data-table" id="accounting-table">
+                                        <table class="data-table" id="holdings-table">
                                             <thead>
                                                 <tr>
-                                                    <th>Date</th>
-                                                    <th>Type</th>
                                                     <th>Asset</th>
-                                                    <th>Quantity</th>
-                                                    <th>Cost Basis</th>
-                                                    <th>Proceeds</th>
-                                                    <th>Realized P&L</th>
+                                                    <th>Remaining Quantity</th>
+                                                    <th>Lots</th>
+                                                    <th>Total Cost Basis</th>
+                                                    <th>Avg Unit Cost</th>
                                                 </tr>
                                             </thead>
-                                            <tbody id="accounting-body"></tbody>
+                                            <tbody id="holdings-body"></tbody>
                                         </table>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        <div class="tab-pane" id="tab-warnings">
-                            <div class="warnings-sections">
-                                <div class="warnings-section">
-                                    <div class="warnings-header">
-                                        <h3>Processing Warnings</h3>
-                                        <span class="warning-count" id="warning-count">0</span>
+                        <div class="tab-pane" id="tab-missing-basis">
+                            <div class="missing-section">
+                                <h3>Missing Cost Basis</h3>
+                                <p class="section-desc">Disposals without resolved cost basis require manual review.</p>
+                                <div class="table-container">
+                                    <div class="table-wrapper">
+                                        <table class="data-table" id="missing-basis-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Event ID</th>
+                                                    <th>Date</th>
+                                                    <th>Asset</th>
+                                                    <th>Quantity</th>
+                                                    <th>Proceeds</th>
+                                                    <th>Source Tx</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="missing-basis-body"></tbody>
+                                        </table>
                                     </div>
-                                    <div class="warnings-list" id="warnings-list"></div>
                                 </div>
-                                <div class="warnings-section">
-                                    <div class="warnings-header">
-                                        <h3>Data Quality Issues</h3>
-                                        <span class="warning-count" id="quality-count">0</span>
+                            </div>
+                        </div>
+
+                        <div class="tab-pane" id="tab-exceptions">
+                            <div class="exceptions-sections">
+                                <div class="exception-section">
+                                    <div class="exception-header">
+                                        <h3>Processing Warnings</h3>
+                                        <span class="warning-count" id="proc-warning-count">0</span>
                                     </div>
-                                    <div class="warnings-list" id="quality-list"></div>
+                                    <div class="warnings-list" id="proc-warnings-list"></div>
+                                </div>
+                                <div class="exception-section">
+                                    <div class="exception-header">
+                                        <h3>Data Quality Issues</h3>
+                                        <span class="warning-count" id="quality-issue-count">0</span>
+                                    </div>
+                                    <div class="warnings-list" id="quality-issues-list"></div>
+                                </div>
+                                <div class="exception-section">
+                                    <div class="exception-header">
+                                        <h3>Errors</h3>
+                                        <span class="warning-count" id="error-count">0</span>
+                                    </div>
+                                    <div class="warnings-list" id="errors-list"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="tab-pane" id="tab-audit-trail">
+                            <div class="audit-section">
+                                <h3>Audit Trail</h3>
+                                <p class="section-desc">Complete traceability from raw transactions through accounting events and lot consumptions.</p>
+                                <div class="table-container">
+                                    <div class="table-wrapper">
+                                        <table class="data-table" id="audit-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Event ID</th>
+                                                    <th>Date</th>
+                                                    <th>Event Type</th>
+                                                    <th>Asset</th>
+                                                    <th>Quantity</th>
+                                                    <th>Cost Basis</th>
+                                                    <th>Proceeds</th>
+                                                    <th>Realized P&L</th>
+                                                    <th>Linked Lots</th>
+                                                    <th>Source Tx</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="audit-body"></tbody>
+                                        </table>
+                                    </div>
                                 </div>
                             </div>
                         </div>
