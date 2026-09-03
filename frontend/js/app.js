@@ -664,18 +664,31 @@ function renderResults(data) {
         document.getElementById('ov-disposals').textContent = acctSummary.disposal_events || 0;
         document.getElementById('ov-lots').textContent = acctSummary.total_lots_created || 0;
 
-        renderPnLCard(acct);
-        renderTransactionsTable(data.transactions || []);
-        renderReconciliation(data);
-        renderAccounting(acct);
-        renderTaxSummary(acct);
-        renderHoldings(acct);
-        renderMissingBasis(acct);
-        renderExceptions(data, acct);
-        renderAuditTrail(acct);
+        const sections = [
+            ['P&L Card', () => renderPnLCard(acct)],
+            ['Transactions', () => renderTransactionsTable(data.transactions || [])],
+            ['Reconciliation', () => renderReconciliation(data)],
+            ['Accounting', () => renderAccounting(acct)],
+            ['Tax Summary', () => renderTaxSummary(acct)],
+            ['Holdings', () => renderHoldings(acct)],
+            ['Missing Basis', () => renderMissingBasis(acct)],
+            ['Exceptions', () => renderExceptions(data, acct)],
+            ['Audit Trail', () => renderAuditTrail(acct)]
+        ];
+
+        sections.forEach(([name, render]) => {
+            try {
+                render();
+            } catch (sectionError) {
+                console.error(`renderResults section failed [${name}]:`, sectionError);
+                showToast('warning', 'Display Issue', `${name} section could not be rendered. Other sections are still available.`);
+            }
+        });
     } catch (error) {
         console.error('renderResults failed:', error);
-        throw error;
+        const errorMessage = error && error.message ? error.message : 'Could not display results. Please try again or contact support.';
+        showToast('error', 'Display Error', errorMessage);
+        setTimeout(() => navigateTo('upload'), 2000);
     }
 }
 
