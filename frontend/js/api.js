@@ -154,8 +154,8 @@ const api = {
             success: true,
             status: 200,
             data: null,
-            warnings: [],
-            errors: []
+            error: null,
+            partial: false
         };
 
         for (const file of files) {
@@ -163,14 +163,15 @@ const api = {
             if (!result.success) {
                 combined.success = false;
                 combined.status = result.status || 400;
-                combined.errors = combined.errors.concat(result.error || ['Unknown error']);
+                combined.error = result.error || 'One or more files failed to process.';
+                combined.partial = true;
                 continue;
             }
 
             if (!combined.data) {
                 combined.data = result.data;
             } else {
-                combined.data.transaction_count += result.data.transaction_count || 0;
+                combined.data.transaction_count = (combined.data.transaction_count || 0) + (result.data.transaction_count || 0);
                 combined.data.transactions = (combined.data.transactions || []).concat(result.data.transactions || []);
                 combined.data.warnings = (combined.data.warnings || []).concat(result.data.warnings || []);
                 combined.data.errors = (combined.data.errors || []).concat(result.data.errors || []);
@@ -181,11 +182,6 @@ const api = {
                     combined.data.summary = result.data.summary;
                 }
             }
-        }
-
-        if (combined.data) {
-            combined.data.warnings = combined.warnings;
-            combined.data.errors = combined.errors;
         }
 
         return combined;
