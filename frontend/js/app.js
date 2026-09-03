@@ -898,22 +898,31 @@ function renderResults(data) {
         document.getElementById('ov-fees').textContent = summary.fees || 0;
 
         const acct = data.accounting_result || {};
-        const acctSummary = acct.summary || {};
+        const safeAcct = {
+            summary: acct.summary || {},
+            events: acct.events || [],
+            lots: acct.lots || [],
+            consumptions: acct.consumptions || [],
+            realized_pnl: acct.realized_pnl || [],
+            warnings: acct.warnings || [],
+            errors: acct.errors || []
+        };
+        const acctSummary = safeAcct.summary || {};
         document.getElementById('ov-events').textContent = acctSummary.total_events || 0;
         document.getElementById('ov-acquisitions').textContent = acctSummary.acquisition_events || 0;
         document.getElementById('ov-disposals').textContent = acctSummary.disposal_events || 0;
         document.getElementById('ov-lots').textContent = acctSummary.total_lots_created || 0;
 
         const sections = [
-            ['P&L Card', () => renderPnLCard(acct)],
+            ['P&L Card', () => renderPnLCard(safeAcct)],
             ['Transactions', () => renderTransactionsTable(data.transactions || [])],
             ['Reconciliation', () => renderReconciliation(data)],
-            ['Accounting', () => renderAccounting(acct)],
-            ['Tax Summary', () => renderTaxSummary(acct)],
-            ['Holdings', () => renderHoldings(acct)],
-            ['Missing Basis', () => renderMissingBasis(acct)],
-            ['Exceptions', () => renderExceptions(data, acct)],
-            ['Audit Trail', () => renderAuditTrail(acct)]
+            ['Accounting', () => renderAccounting(safeAcct)],
+            ['Tax Summary', () => renderTaxSummary(safeAcct)],
+            ['Holdings', () => renderHoldings(safeAcct)],
+            ['Missing Basis', () => renderMissingBasis(safeAcct)],
+            ['Exceptions', () => renderExceptions(data, safeAcct)],
+            ['Audit Trail', () => renderAuditTrail(safeAcct)]
         ];
 
         sections.forEach(([name, render]) => {
