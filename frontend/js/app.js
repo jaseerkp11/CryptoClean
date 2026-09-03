@@ -948,13 +948,13 @@ function renderResults(data) {
 function renderPnLCard(accountingResult) {
     try {
         const pnlCard = document.getElementById('pnl-card');
-        if (!accountingResult || !accountingResult.summary) {
-            pnlCard.style.display = 'none';
+        if (!accountingResult || !accountingResult.summary || Object.keys(accountingResult.summary || {}).length === 0) {
+            if (pnlCard) pnlCard.style.display = 'none';
             return;
         }
 
-        pnlCard.style.display = 'block';
-        const summary = accountingResult.summary;
+        if (pnlCard) pnlCard.style.display = 'block';
+        const summary = accountingResult.summary || {};
         const totalPnL = summary.total_realized_pnl;
         const currency = (summary.pnl_currency || 'USD').toString().toUpperCase();
 
@@ -1165,18 +1165,18 @@ function renderAccounting(accountingResult) {
         const summaryDisposals = document.getElementById('acct-disposals');
         const summaryLots = document.getElementById('acct-lots');
 
-        if (!accountingResult || !accountingResult.summary) {
-            summaryEvents.textContent = '0';
-            summaryAcquisitions.textContent = '0';
-            summaryDisposals.textContent = '0';
-            summaryLots.textContent = '0';
+        if (!accountingResult || !accountingResult.summary || Object.keys(accountingResult.summary || {}).length === 0) {
+            if (summaryEvents) summaryEvents.textContent = '0';
+            if (summaryAcquisitions) summaryAcquisitions.textContent = '0';
+            if (summaryDisposals) summaryDisposals.textContent = '0';
+            if (summaryLots) summaryLots.textContent = '0';
             showEmptyState('accounting-body', 'No accounting data available');
             showEmptyState('lots-body', 'No lots data available');
             showEmptyState('consumptions-body', 'No consumptions data available');
             return;
         }
 
-        const summary = accountingResult.summary;
+        const summary = accountingResult.summary || {};
         summaryEvents.textContent = summary.total_events || 0;
         summaryAcquisitions.textContent = summary.acquisition_events || 0;
         summaryDisposals.textContent = summary.disposal_events || 0;
@@ -1256,6 +1256,16 @@ function renderTaxSummary(accountingResult) {
         const pnlTotalEl = document.getElementById('tax-pnl-total');
         const pnlBreakdownEl = document.getElementById('tax-pnl-breakdown');
         const pnlBadge = document.getElementById('pnl-currency-badge');
+
+        if (!accountingResult || !accountingResult.summary || Object.keys(accountingResult.summary || {}).length === 0) {
+            if (pnlTotalEl) pnlTotalEl.innerHTML = '<span class="unresolved-pill">UNRESOLVED</span>';
+            if (pnlBreakdownEl) pnlBreakdownEl.innerHTML = '';
+            if (pnlBadge) pnlBadge.textContent = 'USD';
+            showEmptyState('capital-gains-body', 'No capital gains data');
+            showEmptyState('income-body', 'No income data');
+            return;
+        }
+
         const realizedPnl = accountingResult.realized_pnl || [];
         const totalRealizedPnl = accountingResult.summary?.total_realized_pnl;
         const pnlCurrency = (accountingResult.summary?.pnl_currency || 'USD').toString().toUpperCase();
@@ -1386,7 +1396,7 @@ function renderHoldings(accountingResult) {
 
 function renderMissingBasis(accountingResult) {
     try {
-        const events = accountingResult.events || [];
+        const events = accountingResult?.events || [];
         const missingBasis = events.filter(e => e.event_type === 'DISPOSAL' && (e.cost_basis === null || e.cost_basis === undefined));
         const missingBody = document.getElementById('missing-basis-body');
 
@@ -1536,7 +1546,7 @@ function renderExceptions(data, accountingResult) {
 
 function renderAuditTrail(accountingResult) {
     try {
-        const events = accountingResult.events || [];
+        const events = accountingResult?.events || [];
         const auditBody = document.getElementById('audit-body');
 
         if (events.length > 0) {
