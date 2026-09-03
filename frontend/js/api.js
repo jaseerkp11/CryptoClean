@@ -5,6 +5,16 @@
 
 const API_BASE_URL = 'https://cryptoclean-api.onrender.com';
 
+function safeString(value) {
+    if (typeof value === 'string') return value;
+    if (Array.isArray(value)) return value.join(', ');
+    if (value && typeof value === 'object') {
+        if (value.detail) return safeString(value.detail);
+        return JSON.stringify(value);
+    }
+    return value ? String(value) : '';
+}
+
 const api = {
     /**
      * Check API health status
@@ -118,7 +128,7 @@ const api = {
                 return {
                     success: false,
                     status: response.status,
-                    error: data.detail || 'An error occurred while processing your files.',
+                    error: safeString(data.detail || data || 'An error occurred while processing your files.'),
                     data: data
                 };
             }

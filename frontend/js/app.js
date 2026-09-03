@@ -456,11 +456,12 @@ async function processFile() {
                 }
             }, 500);
         } else {
+            console.error('Processing API error:', result.status, result.error, result.data);
             elements.processingTitle.textContent = 'Processing failed';
-            elements.processingStatus.textContent = result.error || 'Unknown error';
+            elements.processingStatus.textContent = safeString(result.error || 'Unknown error');
             elements.progressFill.style.width = '0%';
 
-            showToast('error', 'Processing Failed', result.error || 'An unknown error occurred.');
+            showToast('error', 'Processing Failed', safeString(result.error || 'An unknown error occurred.'));
 
             setTimeout(() => {
                 navigateTo('upload');
@@ -469,10 +470,10 @@ async function processFile() {
     } catch (error) {
         console.error('Processing failed:', error);
         elements.processingTitle.textContent = 'Processing failed';
-        elements.processingStatus.textContent = error.message || 'An unexpected error occurred.';
+        elements.processingStatus.textContent = safeString(error.message || 'An unexpected error occurred.');
         elements.progressFill.style.width = '0%';
 
-        showToast('error', 'Processing Failed', error.message || 'An unexpected error occurred. Please try again.');
+        showToast('error', 'Processing Failed', safeString(error.message || 'An unexpected error occurred. Please try again.'));
 
         setTimeout(() => {
             navigateTo('upload');
