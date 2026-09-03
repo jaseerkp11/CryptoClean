@@ -8,6 +8,11 @@ from backend.reconciliation.converts import ConvertLeg, ConvertRules
 
 
 BINANCE_CONVERT_OPERATION = "Binance Convert"
+BINANCE_SMALL_ASSETS_EXCHANGE_OPERATIONS = {
+    "Small Assets Exchange BNB",
+    "Small Assets Exchange",
+}
+BINANCE_TOKEN_SWAP_REDENOMINATION = "Token Swap - Redenomination/Rebranding"
 
 
 class BinanceConvertRules(ConvertRules):
@@ -15,7 +20,12 @@ class BinanceConvertRules(ConvertRules):
         if tx.transaction_type != TransactionType.UNKNOWN:
             return None
         meta = tx.metadata or {}
-        if meta.get("source_operation") != BINANCE_CONVERT_OPERATION:
+        source_operation = meta.get("source_operation")
+        if source_operation not in {
+            BINANCE_CONVERT_OPERATION,
+            *BINANCE_SMALL_ASSETS_EXCHANGE_OPERATIONS,
+            BINANCE_TOKEN_SWAP_REDENOMINATION,
+        }:
             return None
         signed_raw = meta.get("source_change_signed")
         if signed_raw is None or tx.quantity is None:
@@ -35,5 +45,5 @@ class BinanceConvertRules(ConvertRules):
             quantity=tx.quantity,
             signed_amount=signed,
             timestamp=tx.timestamp,
-            operation=str(meta.get("source_operation", "")),
+            operation=source_operation,
         )

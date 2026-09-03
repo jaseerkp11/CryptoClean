@@ -69,8 +69,8 @@ class AccountingEngine:
         if transfer_result is not None:
             transfer_matches = transfer_result
             for match in getattr(transfer_result, "matches", []):
-                matched_transfer_ids.add(getattr(match, "leg_a_transaction_id", None))
-                matched_transfer_ids.add(getattr(match, "leg_b_transaction_id", None))
+                matched_transfer_ids.add(getattr(match, "source_transaction_id", None))
+                matched_transfer_ids.add(getattr(match, "destination_transaction_id", None))
 
         lot_pool: Dict[str, Decimal] = {}
         swap_candidates: List[CanonicalTransaction] = []
@@ -174,6 +174,14 @@ class AccountingEngine:
             consumed_qty = consumed.get(lot.lot_id, Decimal("0"))
             remaining = lot.acquired_quantity - consumed_qty
             if remaining < 0:
+                self._warnings.append(
+                    make_warning(
+                        code=WarningCode.INSUFFICIENT_LOTS,
+                        message=f"Lot {lot.lot_id} for {lot.asset} has negative remaining quantity {remaining}; clamped to 0.",
+                        source_transaction_id=lot.source_transaction_id,
+                        context={"lot_id": lot.lot_id, "consumed": str(consumed_qty), "acquired": str(lot.acquired_quantity)},
+                    )
+                )
                 remaining = Decimal("0")
             final.append(
                 AcquisitionLot(
@@ -660,7 +668,7 @@ def _make_event_id(tx_id: str, event_type: str) -> str:
 
 
 def _make_lot_id(tx_id: str, asset: str, quantity: Decimal, timestamp: datetime) -> str:
-    raw = "|".join(sorted([tx_id, asset, str(quantity), str(timestamp)]))
+    raw = "|".join(sorted([tx_id, asset, str(quantity), timestamp.isoformat()]))
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
 
 

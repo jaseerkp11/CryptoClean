@@ -560,7 +560,7 @@ def test_fee_decimal_precision():
 
 def test_matched_transfer_preserves_lot_linkage():
     tx = _tx("tx-1", transaction_type=TransactionType.TRANSFER, side=None, quantity=Decimal("1"), asset="USDT")
-    transfer_result = type("T", (), {"matches": [type("M", (), {"leg_a_transaction_id": "tx-1", "leg_b_transaction_id": "tx-2"})()]})()
+    transfer_result = type("T", (), {"matches": [type("M", (), {"source_transaction_id": "tx-1", "destination_transaction_id": "tx-2"})()]})()
     engine = AccountingEngine()
     result = engine.process([tx], transfer_result=transfer_result)
     assert len(result.events) == 1
@@ -578,7 +578,7 @@ def test_unmatched_transfer_produces_warning():
 
 def test_transfer_no_lots_created():
     tx = _tx("tx-1", transaction_type=TransactionType.TRANSFER, side=None, quantity=Decimal("1"), asset="USDT")
-    transfer_result = type("T", (), {"matches": [type("M", (), {"leg_a_transaction_id": "tx-1", "leg_b_transaction_id": "tx-2"})()]})()
+    transfer_result = type("T", (), {"matches": [type("M", (), {"source_transaction_id": "tx-1", "destination_transaction_id": "tx-2"})()]})()
     engine = AccountingEngine()
     result = engine.process([tx], transfer_result=transfer_result)
     assert len(result.lots) == 0
@@ -587,7 +587,7 @@ def test_transfer_no_lots_created():
 
 def test_transfer_deterministic():
     tx = _tx("tx-1", transaction_type=TransactionType.TRANSFER, side=None, quantity=Decimal("1"), asset="USDT")
-    transfer_result = type("T", (), {"matches": [type("M", (), {"leg_a_transaction_id": "tx-1", "leg_b_transaction_id": "tx-2"})()]})()
+    transfer_result = type("T", (), {"matches": [type("M", (), {"source_transaction_id": "tx-1", "destination_transaction_id": "tx-2"})()]})()
     r1 = AccountingEngine().process([tx], transfer_result=transfer_result)
     r2 = AccountingEngine().process([tx], transfer_result=transfer_result)
     assert r1.events == r2.events
@@ -734,13 +734,13 @@ def test_swap_realized_pnl():
 
 
 def test_consumption_realized_pnl_proportional_allocation():
-    tx_buy1 = _tx("tx-0", side=Side.BUY, quantity=Decimal("1"), price=Decimal("40000"), value=Decimal("40000"))
-    tx_buy2 = _tx("tx-1", side=Side.BUY, quantity=Decimal("1"), price=Decimal("41000"), value=Decimal("41000"))
+    tx_buy1 = _tx("tx-0", side=Side.BUY, quantity=Decimal("1"), price=Decimal("40000"), value=Decimal("40000"), timestamp=datetime(2024, 1, 1, 0, 0, 0, tzinfo=timezone.utc))
+    tx_buy2 = _tx("tx-1", side=Side.BUY, quantity=Decimal("1"), price=Decimal("41000"), value=Decimal("41000"), timestamp=datetime(2024, 1, 1, 0, 0, 1, tzinfo=timezone.utc))
     tx_sell = _tx("tx-2", side=Side.SELL, quantity=Decimal("1.5"), price=Decimal("50000"), value=Decimal("75000"))
     engine = AccountingEngine()
     result = engine.process([tx_buy1, tx_buy2, tx_sell])
     assert len(result.realized_pnl) == 1
-    assert result.realized_pnl[0].total_realized_pnl == Decimal("14000")
+    assert result.realized_pnl[0].total_realized_pnl == Decimal("14500")
 
 
 def test_api_account_endpoint():
@@ -885,7 +885,7 @@ def test_realized_pnl_aggregated_by_currency():
 def test_matched_transfer_links_lots():
     tx_buy = _tx("tx-0", side=Side.BUY, quantity=Decimal("1"), price=Decimal("50000"), value=Decimal("50000"))
     tx_transfer = _tx("tx-1", transaction_type=TransactionType.TRANSFER, side=None, quantity=Decimal("1"), asset="BTC")
-    transfer_result = type("T", (), {"matches": [type("M", (), {"leg_a_transaction_id": "tx-1", "leg_b_transaction_id": "tx-2"})()]})()
+    transfer_result = type("T", (), {"matches": [type("M", (), {"source_transaction_id": "tx-1", "destination_transaction_id": "tx-2"})()]})()
     engine = AccountingEngine()
     result = engine.process([tx_buy, tx_transfer], transfer_result=transfer_result)
     transfer_event = result.events[-1]

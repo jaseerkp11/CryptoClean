@@ -14,6 +14,15 @@ BINANCE_TRANSFER_OPERATIONS: dict[str, tuple[str, str]] = {
     "Transfer Between Spot and UM Futures": ("Spot", "USD-M Futures"),
     "Transfer Between UM Futures and Funding": ("USD-M Futures", "Funding"),
     "Transfer Between Spot and Funding": ("Spot", "Funding"),
+    "Simple Earn Flexible Subscription": ("Spot", "Simple Earn"),
+    "Simple Earn Flexible Redemption": ("Simple Earn", "Spot"),
+    "Launchpool Subscription/Redemption": ("Spot", "Launchpool"),
+}
+
+BINANCE_TRANSFER_PAIRS: dict[str, str] = {
+    "Simple Earn Flexible Subscription": "Simple Earn Flexible Redemption",
+    "Simple Earn Flexible Redemption": "Simple Earn Flexible Subscription",
+    "Launchpool Subscription/Redemption": "Launchpool Subscription/Redemption",
 }
 
 
@@ -50,10 +59,15 @@ class BinanceTransferRules(TransferRules):
         pair_b = BINANCE_TRANSFER_OPERATIONS.get(b.operation)
         if not pair_a or not pair_b:
             return False
-        # The two legs must belong to the same transfer operation type.
-        if a.operation != b.operation:
-            return False
-        if not a.account or not b.account:
-            return False
-        # The account pair must match the canonical account pair (order-independent).
-        return {a.account, b.account} == set(pair_a)
+        if a.operation == b.operation:
+            if not a.account or not b.account:
+                return False
+            return {a.account, b.account} == set(pair_a)
+        paired_b = BINANCE_TRANSFER_PAIRS.get(a.operation)
+        if paired_b and paired_b == b.operation:
+            if not a.account or not b.account:
+                return False
+            if {a.account, b.account} == set(pair_a):
+                return True
+            return a.account == b.account
+        return False

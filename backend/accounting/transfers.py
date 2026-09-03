@@ -25,8 +25,8 @@ def process_transfer(
     linked_transfer_id: Optional[str] = None
     if is_matched and transfer_matches is not None:
         for match in getattr(transfer_matches, "matches", []):
-            leg_a = getattr(match, "leg_a_transaction_id", None)
-            leg_b = getattr(match, "leg_b_transaction_id", None)
+            leg_a = getattr(match, "source_transaction_id", None)
+            leg_b = getattr(match, "destination_transaction_id", None)
             if tx.transaction_id == leg_a:
                 linked_transfer_id = leg_b
                 break
