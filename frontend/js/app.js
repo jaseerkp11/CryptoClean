@@ -1189,18 +1189,25 @@ function renderAccounting(accountingResult) {
 
         const events = accountingResult.events || [];
         if (events.length > 0 && accountingBody) {
-            accountingBody.innerHTML = events.map(event => `
-                <tr>
-                    <td>${fmtDate(event.timestamp)}</td>
-                    <td>${fmtBadge(event.event_type)}</td>
-                    <td>${safeStr(event.asset) || '-'}</td>
-                    <td>${fmtNumber(event.quantity)}</td>
-                    <td>${event.cost_basis !== null && event.cost_basis !== undefined ? fmtCurrency(event.cost_basis, event.cost_currency || 'USD') : '<span class="unresolved">UNRESOLVED</span>'}</td>
-                    <td>${event.proceeds !== null && event.proceeds !== undefined ? fmtCurrency(event.proceeds, event.proceeds_currency || 'USD') : '<span class="unresolved">UNRESOLVED</span>'}</td>
-                    <td>${event.realized_pnl !== null && event.realized_pnl !== undefined ? (safeNum(event.realized_pnl) >= 0 ? '<span class="text-positive">+' : '<span class="text-negative">') + fmtCurrency(event.realized_pnl, event.pnl_currency || 'USD') + '</span>' : '<span class="unresolved">UNRESOLVED</span>'}</td>
-                    <td>${safeStr(event.source_transaction_id) || '-'}</td>
-                </tr>
-            `).join('');
+            accountingBody.innerHTML = events.map(event => {
+                try {
+                    return `
+                        <tr>
+                            <td>${fmtDate(event.timestamp)}</td>
+                            <td>${fmtBadge(event.event_type)}</td>
+                            <td>${safeStr(event.asset) || '-'}</td>
+                            <td>${fmtNumber(event.quantity)}</td>
+                            <td>${event.cost_basis !== null && event.cost_basis !== undefined ? fmtCurrency(event.cost_basis, event.cost_currency || 'USD') : '<span class="unresolved">UNRESOLVED</span>'}</td>
+                            <td>${event.proceeds !== null && event.proceeds !== undefined ? fmtCurrency(event.proceeds, event.proceeds_currency || 'USD') : '<span class="unresolved">UNRESOLVED</span>'}</td>
+                            <td>${event.realized_pnl !== null && event.realized_pnl !== undefined ? (safeNum(event.realized_pnl) >= 0 ? '<span class="text-positive">+' : '<span class="text-negative">') + fmtCurrency(event.realized_pnl, event.pnl_currency || 'USD') + '</span>' : '<span class="unresolved">UNRESOLVED</span>'}</td>
+                            <td>${safeStr(event.source_transaction_ids) || '-'}</td>
+                        </tr>
+                    `;
+                } catch (rowError) {
+                    console.error('Failed to render accounting event:', rowError, event);
+                    return `<tr><td colspan="8" class="empty-state">Render error</td></tr>`;
+                }
+            }).join('');
         } else if (accountingBody) {
             showEmptyState('accounting-body', 'No events found');
         }
@@ -1301,18 +1308,25 @@ function renderTaxSummary(accountingResult) {
         const disposals = events.filter(e => e.event_type === 'DISPOSAL');
         const capitalGainsBody = document.getElementById('capital-gains-body');
         if (disposals.length > 0) {
-            capitalGainsBody.innerHTML = disposals.map(e => `
-                <tr>
-                    <td>${safeStr(e.event_id) || '-'}</td>
-                    <td>${fmtDate(e.timestamp)}</td>
-                    <td>${safeStr(e.asset) || '-'}</td>
-                    <td>${fmtNumber(e.quantity)}</td>
-                    <td>${e.cost_basis !== null && e.cost_basis !== undefined ? fmtCurrency(e.cost_basis, e.cost_currency || 'USD') : '<span class="unresolved">UNRESOLVED</span>'}</td>
-                    <td>${e.proceeds !== null && e.proceeds !== undefined ? fmtCurrency(e.proceeds, e.proceeds_currency || 'USD') : '<span class="unresolved">UNRESOLVED</span>'}</td>
-                    <td>${e.realized_pnl !== null && e.realized_pnl !== undefined ? (safeNum(e.realized_pnl) >= 0 ? '<span class="text-positive">+' : '<span class="text-negative">') + fmtCurrency(e.realized_pnl, e.pnl_currency || 'USD') + '</span>' : '<span class="unresolved">UNRESOLVED</span>'}</td>
-                    <td>${fmtBadge(e.event_type)}</td>
-                </tr>
-            `).join('');
+            capitalGainsBody.innerHTML = disposals.map(e => {
+                try {
+                    return `
+                        <tr>
+                            <td>${safeStr(e.event_id) || '-'}</td>
+                            <td>${fmtDate(e.timestamp)}</td>
+                            <td>${safeStr(e.asset) || '-'}</td>
+                            <td>${fmtNumber(e.quantity)}</td>
+                            <td>${e.cost_basis !== null && e.cost_basis !== undefined ? fmtCurrency(e.cost_basis, e.cost_currency || 'USD') : '<span class="unresolved">UNRESOLVED</span>'}</td>
+                            <td>${e.proceeds !== null && e.proceeds !== undefined ? fmtCurrency(e.proceeds, e.proceeds_currency || 'USD') : '<span class="unresolved">UNRESOLVED</span>'}</td>
+                            <td>${e.realized_pnl !== null && e.realized_pnl !== undefined ? (safeNum(e.realized_pnl) >= 0 ? '<span class="text-positive">+' : '<span class="text-negative">') + fmtCurrency(e.realized_pnl, e.pnl_currency || 'USD') + '</span>' : '<span class="unresolved">UNRESOLVED</span>'}</td>
+                            <td>${fmtBadge(e.event_type)}</td>
+                        </tr>
+                    `;
+                } catch (rowError) {
+                    console.error('Failed to render capital gains event:', rowError, e);
+                    return `<tr><td colspan="8" class="empty-state">Render error</td></tr>`;
+                }
+            }).join('');
         } else {
             showEmptyState('capital-gains-body', 'No capital gains data');
         }
@@ -1321,16 +1335,23 @@ function renderTaxSummary(accountingResult) {
         const acquisitions = events.filter(e => e.event_type === 'ACQUISITION' || e.event_type === 'REWARD' || e.event_type === 'FEE');
         const incomeBody = document.getElementById('income-body');
         if (acquisitions.length > 0) {
-            incomeBody.innerHTML = acquisitions.map(e => `
-                <tr>
-                    <td>${safeStr(e.event_id) || '-'}</td>
-                    <td>${fmtDate(e.timestamp)}</td>
-                    <td>${safeStr(e.asset) || '-'}</td>
-                    <td>${fmtNumber(e.quantity)}</td>
-                    <td>${e.cost_basis !== null && e.cost_basis !== undefined ? fmtCurrency(e.cost_basis, e.cost_currency || 'USD') : '<span class="unresolved">UNRESOLVED</span>'}</td>
-                    <td>${fmtBadge(e.event_type)}</td>
-                </tr>
-            `).join('');
+            incomeBody.innerHTML = acquisitions.map(e => {
+                try {
+                    return `
+                        <tr>
+                            <td>${safeStr(e.event_id) || '-'}</td>
+                            <td>${fmtDate(e.timestamp)}</td>
+                            <td>${safeStr(e.asset) || '-'}</td>
+                            <td>${fmtNumber(e.quantity)}</td>
+                            <td>${e.cost_basis !== null && e.cost_basis !== undefined ? fmtCurrency(e.cost_basis, e.cost_currency || 'USD') : '<span class="unresolved">UNRESOLVED</span>'}</td>
+                            <td>${fmtBadge(e.event_type)}</td>
+                        </tr>
+                    `;
+                } catch (rowError) {
+                    console.error('Failed to render income event:', rowError, e);
+                    return `<tr><td colspan="6" class="empty-state">Render error</td></tr>`;
+                }
+            }).join('');
         } else {
             showEmptyState('income-body', 'No income data');
         }
@@ -1397,16 +1418,23 @@ function renderMissingBasis(accountingResult) {
         const missingBody = document.getElementById('missing-basis-body');
 
         if (missingBasis.length > 0) {
-            missingBody.innerHTML = missingBasis.map(e => `
-                <tr>
-                    <td>${safeStr(e.event_id) || '-'}</td>
-                    <td>${fmtDate(e.timestamp)}</td>
-                    <td>${safeStr(e.asset) || '-'}</td>
-                    <td>${fmtNumber(e.quantity)}</td>
-                    <td>${e.proceeds !== null && e.proceeds !== undefined ? fmtCurrency(e.proceeds, e.proceeds_currency || 'USD') : '<span class="unresolved">UNRESOLVED</span>'}</td>
-                    <td>${safeStr(e.source_transaction_id) || '-'}</td>
-                </tr>
-            `).join('');
+            missingBody.innerHTML = missingBasis.map(e => {
+                try {
+                    return `
+                        <tr>
+                            <td>${safeStr(e.event_id) || '-'}</td>
+                            <td>${fmtDate(e.timestamp)}</td>
+                            <td>${safeStr(e.asset) || '-'}</td>
+                            <td>${fmtNumber(e.quantity)}</td>
+                            <td>${e.proceeds !== null && e.proceeds !== undefined ? fmtCurrency(e.proceeds, e.proceeds_currency || 'USD') : '<span class="unresolved">UNRESOLVED</span>'}</td>
+                            <td>${safeStr(e.source_transaction_ids) || '-'}</td>
+                        </tr>
+                    `;
+                } catch (rowError) {
+                    console.error('Failed to render missing basis event:', rowError, e);
+                    return `<tr><td colspan="6" class="empty-state">Render error</td></tr>`;
+                }
+            }).join('');
         } else {
             showEmptyState('missing-basis-body', 'All disposals have cost basis');
         }
@@ -1544,20 +1572,27 @@ function renderAuditTrail(accountingResult) {
         const auditBody = document.getElementById('audit-body');
 
         if (events.length > 0) {
-            auditBody.innerHTML = events.map(e => `
-                <tr>
-                    <td>${safeStr(e.event_id) || '-'}</td>
-                    <td>${fmtDate(e.timestamp)}</td>
-                    <td>${fmtBadge(e.event_type)}</td>
-                    <td>${safeStr(e.asset) || '-'}</td>
-                    <td>${fmtNumber(e.quantity)}</td>
-                    <td>${e.cost_basis !== null && e.cost_basis !== undefined ? fmtCurrency(e.cost_basis, e.cost_currency || 'USD') : '<span class="unresolved">UNRESOLVED</span>'}</td>
-                    <td>${e.proceeds !== null && e.proceeds !== undefined ? fmtCurrency(e.proceeds, e.proceeds_currency || 'USD') : '<span class="unresolved">UNRESOLVED</span>'}</td>
-                    <td>${e.realized_pnl !== null && e.realized_pnl !== undefined ? (safeNum(e.realized_pnl) >= 0 ? '<span class="text-positive">+' : '<span class="text-negative">') + fmtCurrency(e.realized_pnl, e.pnl_currency || 'USD') + '</span>' : '<span class="unresolved">UNRESOLVED</span>'}</td>
-                    <td>${e.linked_lot_ids && e.linked_lot_ids.length > 0 ? e.linked_lot_ids.join(', ') : '-'}</td>
-                    <td>${safeStr(e.source_transaction_id) || '-'}</td>
-                </tr>
-            `).join('');
+            auditBody.innerHTML = events.map(e => {
+                try {
+                    return `
+                        <tr>
+                            <td>${safeStr(e.event_id) || '-'}</td>
+                            <td>${fmtDate(e.timestamp)}</td>
+                            <td>${fmtBadge(e.event_type)}</td>
+                            <td>${safeStr(e.asset) || '-'}</td>
+                            <td>${fmtNumber(e.quantity)}</td>
+                            <td>${e.cost_basis !== null && e.cost_basis !== undefined ? fmtCurrency(e.cost_basis, e.cost_currency || 'USD') : '<span class="unresolved">UNRESOLVED</span>'}</td>
+                            <td>${e.proceeds !== null && e.proceeds !== undefined ? fmtCurrency(e.proceeds, e.proceeds_currency || 'USD') : '<span class="unresolved">UNRESOLVED</span>'}</td>
+                            <td>${e.realized_pnl !== null && e.realized_pnl !== undefined ? (safeNum(e.realized_pnl) >= 0 ? '<span class="text-positive">+' : '<span class="text-negative">') + fmtCurrency(e.realized_pnl, e.pnl_currency || 'USD') + '</span>' : '<span class="unresolved">UNRESOLVED</span>'}</td>
+                            <td>${e.linked_lot_ids && e.linked_lot_ids.length > 0 ? e.linked_lot_ids.join(', ') : '-'}</td>
+                            <td>${safeStr(e.source_transaction_ids) || '-'}</td>
+                        </tr>
+                    `;
+                } catch (rowError) {
+                    console.error('Failed to render audit trail event:', rowError, e);
+                    return `<tr><td colspan="10" class="empty-state">Render error</td></tr>`;
+                }
+            }).join('');
         } else {
             showEmptyState('audit-body', 'No audit trail data');
         }
