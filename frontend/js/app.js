@@ -235,7 +235,7 @@ function setupUploadZone() {
 
     input.addEventListener('change', (e) => {
         if (e.target.files.length > 0) {
-            handleFileSelect(e.target.files[0]);
+            handleFileSelect(Array.from(e.target.files));
         }
     });
 
@@ -252,11 +252,12 @@ function setupUploadZone() {
         e.preventDefault();
         zone.classList.remove('drag-over');
         if (e.dataTransfer.files.length > 0) {
-            const file = e.dataTransfer.files[0];
-            if (file.name.toLowerCase().endsWith('.csv')) {
-                handleFileSelect(file);
+            const files = Array.from(e.dataTransfer.files);
+            const validFiles = files.filter(f => f.name.toLowerCase().endsWith('.csv'));
+            if (validFiles.length > 0) {
+                handleFileSelect(validFiles);
             } else {
-                showToast('error', 'Invalid File', 'Please upload a CSV file.');
+                showToast('error', 'Invalid File', 'Please upload CSV files only.');
             }
         }
     });
