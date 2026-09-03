@@ -209,13 +209,13 @@ function validatePlan() {
         } else {
             validationEl.className = 'plan-validation success';
             validationEl.innerHTML = `<span>✓</span> ${state.transactionCount} / ${config.limit || '∞'} transactions`;
-            processBtn.disabled = !state.selectedFile;
+            processBtn.disabled = !state.selectedFiles || state.selectedFiles.length === 0;
             state.planValidation = null;
         }
     } else {
         validationEl.className = 'plan-validation';
         validationEl.innerHTML = '';
-        processBtn.disabled = !state.selectedFile;
+        processBtn.disabled = !state.selectedFiles || state.selectedFiles.length === 0;
         state.planValidation = null;
     }
 }
