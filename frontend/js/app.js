@@ -14,6 +14,7 @@ const state = {
     activeTab: 'overview',
     activeSubTab: 'events',
     detectedExchange: null,
+    detectedReports: [],
     transactionCount: 0,
     planValidation: null,
     filteredTransactions: [],
@@ -49,7 +50,8 @@ const elements = {
     reportsList: document.getElementById('reports-list'),
     readinessSection: document.getElementById('readiness-section'),
     readinessStatus: document.getElementById('readiness-status'),
-    readinessDetails: document.getElementById('readiness-details')
+    readinessDetails: document.getElementById('readiness-details'),
+    coverageGuidance: document.getElementById('coverage-guidance')
 };
 
 // ============================================
@@ -279,40 +281,45 @@ function handleFileSelect(files) {
     elements.selectedFileSize.textContent = formatFileSize(validFiles.reduce((sum, f) => sum + f.size, 0));
     elements.processBtn.disabled = false;
 
-    updateUploadedReportsList();
-    detectExchange(validFiles[0]);
+    detectFiles(validFiles);
 }
 
-async function detectExchange(file) {
-    const result = await api.ingestFile(file);
-    const detectEl = document.getElementById('detected-exchange');
-    if (result.success && result.data) {
-        const exchange = result.data.exchange || 'Unknown';
-        const reportType = result.data.report_type || '';
-        state.detectedExchange = exchange;
-        state.transactionCount = result.data.rows || 0;
+async function detectFiles(files, append = false) {
+    if (!append) {
+        state.detectedReports = [];
+    }
+    for (const file of files) {
+        const result = await api.ingestFile(file);
+        state.detectedReports.push({
+            file: file,
+            exchange: result.success && result.data ? result.data.exchange : 'unknown',
+            report_type: result.success && result.data ? result.data.report_type : 'unknown',
+            confidence: result.success && result.data ? result.data.confidence : 0,
+            rows: result.success && result.data ? result.data.rows || 0 : 0,
+            warnings: result.success && result.data ? result.data.warnings || [] : []
+        });
+    }
+
+    if (state.detectedReports.length > 0) {
+        const primary = state.detectedReports[0];
+        state.detectedExchange = primary.exchange;
+        state.transactionCount = primary.rows;
+        const detectEl = document.getElementById('detected-exchange');
         if (detectEl) {
-            detectEl.textContent = `Detected exchange: ${exchange}${reportType ? ' (' + reportType + ')' : ''}`;
+            detectEl.textContent = `Detected exchange: ${primary.exchange}${primary.report_type ? ' (' + primary.report_type + ')' : ''}`;
             detectEl.style.display = 'block';
         }
-        if (exchange === 'unknown') {
-            showToast('warning', 'Unrecognized Format', 'We could not recognize this CSV format. Please upload a supported Binance or Coinbase report.');
-        }
-        validatePlan();
-    } else {
-        state.detectedExchange = null;
-        state.transactionCount = 0;
-        if (detectEl) {
-            detectEl.textContent = '';
-            detectEl.style.display = 'none';
-        }
-        validatePlan();
     }
+
+    updateUploadedReportsList();
+    updateCoverageGuidance();
+    validatePlan();
 }
 
 function resetUpload() {
     state.selectedFiles = [];
     state.detectedExchange = null;
+    state.detectedReports = [];
     state.transactionCount = 0;
     state.planValidation = null;
     state.reportReadiness = null;
@@ -322,6 +329,8 @@ function resetUpload() {
     elements.uploadedReports.style.display = 'none';
     elements.reportsList.innerHTML = '';
     elements.readinessSection.style.display = 'none';
+    elements.coverageGuidance.style.display = 'none';
+    elements.coverageGuidance.innerHTML = '';
     elements.processBtn.disabled = true;
     const detectEl = document.getElementById('detected-exchange');
     if (detectEl) {
@@ -344,15 +353,16 @@ function addMoreFiles() {
     input.type = 'file';
     input.accept = '.csv';
     input.multiple = true;
-    input.onchange = (e) => {
+    input.onchange = async (e) => {
         if (e.target.files.length > 0) {
             const newFiles = Array.from(e.target.files).filter(f => f.name.toLowerCase().endsWith('.csv'));
             if (newFiles.length > 0) {
                 state.selectedFiles = [...state.selectedFiles, ...newFiles];
-                updateUploadedReportsList();
                 elements.selectedFileName.textContent = `${state.selectedFiles.length} files selected`;
                 elements.selectedFileSize.textContent = formatFileSize(state.selectedFiles.reduce((sum, f) => sum + f.size, 0));
                 elements.processBtn.disabled = false;
+
+                await detectFiles(newFiles, true);
             }
         }
     };
@@ -362,19 +372,131 @@ function addMoreFiles() {
 function updateUploadedReportsList() {
     if (!elements.reportsList) return;
     
-    elements.reportsList.innerHTML = state.selectedFiles.map((file, index) => `
-        <div class="report-card">
-            <div class="report-card-header">
-                <span class="report-card-name">${file.name}</span>
-                <span class="report-card-size">${formatFileSize(file.size)}</span>
+    elements.reportsList.innerHTML = state.selectedFiles.map((file, index) => {
+        const report = state.detectedReports[index] || {};
+        const exchange = report.exchange || 'Unknown';
+        const reportType = report.report_type || 'Unknown';
+        return `
+            <div class="report-card">
+                <div class="report-card-header">
+                    <span class="report-card-name">${file.name}</span>
+                    <span class="report-card-size">${formatFileSize(file.size)}</span>
+                </div>
+                <div class="report-card-body">
+                    <span class="report-card-status">Detected: ${exchange}${reportType !== 'Unknown' ? ' (' + reportType + ')' : ''}</span>
+                    <button class="btn btn-ghost btn-sm" onclick="removeFile(${index})" aria-label="Remove file">Remove</button>
+                </div>
             </div>
-            <div class="report-card-body">
-                <span class="report-card-status">Ready for processing</span>
-            </div>
-        </div>
-    `).join('');
+        `;
+    }).join('');
     
     elements.uploadedReports.style.display = 'block';
+}
+
+function removeFile(index) {
+    state.selectedFiles.splice(index, 1);
+    state.detectedReports.splice(index, 1);
+    
+    if (state.selectedFiles.length === 0) {
+        resetUpload();
+    } else {
+        updateUploadedReportsList();
+        updateCoverageGuidance();
+        validatePlan();
+    }
+}
+
+function updateCoverageGuidance() {
+    if (!elements.coverageGuidance) return;
+
+    const reports = state.detectedReports;
+    const hasTransactionRecord = reports.some(r => r.report_type === 'transaction_record');
+    const hasSpotTradeHistory = reports.some(r => r.report_type === 'spot_trade_history');
+    const primaryExchange = reports.length > 0 ? reports[0].exchange : '';
+
+    let html = '';
+
+    if (hasTransactionRecord && hasSpotTradeHistory) {
+        html = renderCombinedGuidance(primaryExchange);
+    } else if (hasTransactionRecord) {
+        html = renderSingleReportGuidance(primaryExchange);
+    } else {
+        elements.coverageGuidance.style.display = 'none';
+        elements.coverageGuidance.innerHTML = '';
+        return;
+    }
+
+    elements.coverageGuidance.innerHTML = html;
+    elements.coverageGuidance.style.display = 'block';
+}
+
+function renderSingleReportGuidance(exchange) {
+    const label = exchange.charAt(0).toUpperCase() + exchange.slice(1);
+    return `
+        <div class="coverage-section">
+            <h3>Your ${label} Transaction Record is ready</h3>
+            <p>This report includes account activity, transfers, deposits, withdrawals, fees and other transactions.</p>
+        </div>
+        <div class="coverage-section coverage-recommendation">
+            <h3>For the most complete tax report, add:</h3>
+            <div class="coverage-recommendation-body">
+                <strong>${label} Spot Trade History</strong>
+                <p>Trade-level pricing and values help KryptLedg calculate cost basis, proceeds and realized gains/losses.</p>
+                <button class="btn btn-outline btn-sm" onclick="addMoreFiles()">+ Add Spot Trade History</button>
+            </div>
+        </div>
+        <div class="coverage-section">
+            <h3>You can continue with this report alone</h3>
+            <p>You can still analyze and reconcile the transactions in this report, but some tax calculations may remain <strong>UNRESOLVED</strong> because the Transaction Record may not contain sufficient trade pricing or value information.</p>
+        </div>
+        <div class="coverage-section">
+            <h3>Available with this report</h3>
+            <ul class="coverage-list">
+                <li>Transaction analysis</li>
+                <li>Transaction classification</li>
+                <li>Internal transfer detection</li>
+                <li>Duplicate detection</li>
+                <li>Deposits and withdrawals</li>
+                <li>Fees and account activity</li>
+                <li>FIFO transaction/lot tracking where supported</li>
+                <li>Holdings tracking</li>
+                <li>Missing-data identification</li>
+                <li>Exceptions and warnings</li>
+                <li>Audit trail</li>
+                <li>Tax-year reporting</li>
+            </ul>
+        </div>
+        <div class="coverage-section">
+            <h3>Add Spot Trade History for more complete tax accounting</h3>
+            <p>${label} Spot Trade History provides trade-level information such as prices, quantities and values that can help KryptLedg calculate cost basis, disposal proceeds and realized gains/losses where the source data supports the calculation.</p>
+            <ul class="coverage-list">
+                <li>Cost basis</li>
+                <li>Disposal proceeds</li>
+                <li>Realized gains/losses</li>
+                <li>Capital gains reporting</li>
+            </ul>
+        </div>
+    `;
+}
+
+function renderCombinedGuidance(exchange) {
+    const label = exchange.charAt(0).toUpperCase() + exchange.slice(1);
+    return `
+        <div class="coverage-section coverage-combined">
+            <h3>${label} reports ready</h3>
+            <div class="coverage-combined-list">
+                <div class="coverage-combined-item">
+                    <strong>Transaction Record</strong>
+                    <p>Account activity, transfers, deposits, withdrawals and fees.</p>
+                </div>
+                <div class="coverage-combined-item">
+                    <strong>Spot Trade History</strong>
+                    <p>Trade-level prices, quantities and values.</p>
+                </div>
+            </div>
+            <p>KryptLedg will combine and reconcile these reports, identify overlapping records, prevent duplicate counting, build FIFO cost basis and calculate realized gains/losses where the source data supports the calculation.</p>
+        </div>
+    `;
 }
 
 function showReadiness(status, details) {

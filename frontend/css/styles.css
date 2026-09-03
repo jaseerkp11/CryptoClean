@@ -546,3 +546,20 @@ body { font-family: var(--font-family); font-size: var(--font-size-base); line-h
 .readiness-detail-item { display: flex; justify-content: space-between; font-size: var(--font-size-xs); }
 .readiness-detail-label { color: var(--primary-500); text-transform: capitalize; }
 .readiness-detail-value { color: var(--primary-900); font-weight: 500; }
+
+/* Coverage guidance */
+.coverage-guidance { margin-top: var(--space-6); padding: var(--space-6); background: white; border-radius: var(--radius-lg); border: 1px solid var(--primary-200); }
+.coverage-section { margin-bottom: var(--space-6); }
+.coverage-section:last-child { margin-bottom: 0; }
+.coverage-section h3 { font-size: var(--font-size-base); font-weight: 600; color: var(--primary-900); margin-bottom: var(--space-2); }
+.coverage-section p { font-size: var(--font-size-sm); color: var(--primary-500); line-height: 1.6; margin-bottom: var(--space-3); }
+.coverage-section strong { color: var(--primary-900); }
+.coverage-recommendation { padding: var(--space-4); background: var(--accent-50); border-radius: var(--radius-md); border: 1px solid var(--accent-200); }
+.coverage-recommendation-body strong { display: block; font-size: var(--font-size-base); color: var(--accent-700); margin-bottom: var(--space-2); }
+.coverage-combined { padding: var(--space-4); background: var(--success-100); border-radius: var(--radius-md); border: 1px solid var(--success-200); }
+.coverage-combined-list { display: flex; flex-direction: column; gap: var(--space-3); margin-bottom: var(--space-3); }
+.coverage-combined-item strong { display: block; font-size: var(--font-size-sm); color: var(--primary-900); margin-bottom: var(--space-1); }
+.coverage-combined-item p { margin-bottom: 0; }
+.coverage-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+.coverage-list li { padding-left: var(--space-5); position: relative; font-size: var(--font-size-sm); color: var(--primary-500); }
+.coverage-list li::before { content: '✓'; position: absolute; left: 0; color: var(--success-600); font-weight: 700; }
