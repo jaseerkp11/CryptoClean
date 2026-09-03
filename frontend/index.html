@@ -375,7 +375,7 @@
 
                     <div class="upload-workspace">
                         <div class="upload-zone" id="upload-zone">
-                            <input type="file" id="file-input" accept=".csv" hidden>
+                            <input type="file" id="file-input" accept=".csv" multiple hidden>
                             <div class="upload-prompt" id="upload-prompt">
                                 <div class="upload-icon">
                                     <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
@@ -399,6 +399,21 @@
                                 <p class="file-size" id="selected-file-size"></p>
                                 <p class="detected-exchange" id="detected-exchange" style="display: none; font-size: var(--font-size-sm); color: var(--accent-600); font-weight: 600;"></p>
                                 <button class="btn btn-ghost btn-sm" onclick="resetUpload()">Change file</button>
+                            </div>
+                        </div>
+
+                        <div class="uploaded-reports" id="uploaded-reports" style="display: none;">
+                            <div class="reports-header">
+                                <span class="reports-title">Uploaded Reports</span>
+                                <button class="btn btn-ghost btn-sm" onclick="addMoreFiles()">Add Report</button>
+                            </div>
+                            <div id="reports-list"></div>
+                            <div class="readiness-section" id="readiness-section" style="display: none;">
+                                <div class="readiness-card" id="readiness-card">
+                                    <span class="readiness-label">Report Readiness</span>
+                                    <span class="readiness-status" id="readiness-status"></span>
+                                </div>
+                                <div class="readiness-details" id="readiness-details"></div>
                             </div>
                         </div>
 

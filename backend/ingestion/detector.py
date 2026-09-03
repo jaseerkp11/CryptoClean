@@ -1,5 +1,7 @@
 from typing import Dict, List, Tuple
 
+from backend.processing.capabilities import get_report_capabilities, get_report_priority
+
 EXCHANGE_SIGNATURES = [
     {
         "id": "binance",
@@ -55,27 +57,6 @@ EXCHANGE_SIGNATURES = [
             "total (inclusive of fees)",
             "fees",
             "notes",
-        ],
-        "sample_value_checks": {},
-    },
-    {
-        "id": "bybit",
-        "report_type": "transaction_record",
-        "filename_keywords": ["bybit"],
-        "required_columns": [
-            "exec time",
-            "symbol",
-            "exec type",
-            "order qty",
-            "exec qty",
-        ],
-        "optional_columns": [
-            "order price",
-            "exec price",
-            "fee",
-            "order avg price",
-            "type",
-            "subject",
         ],
         "sample_value_checks": {},
     },

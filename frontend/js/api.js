@@ -78,6 +78,60 @@ const api = {
     },
 
     /**
+     * Process multiple CSV files
+     * @param {FileList|Array<File>} files - The CSV files to process
+     * @param {string} timezone - The timezone for date interpretation
+     * @param {boolean} accounting - Whether to include accounting calculations
+     */
+    async processFiles(files, timezone, accounting = false, plan = 'free') {
+        const formData = new FormData();
+        for (const file of files) {
+            formData.append('files', file);
+        }
+
+        const endpoint = accounting ? '/api/v1/account' : '/api/v1/process-multi';
+        const url = new URL(`${API_BASE_URL}${endpoint}`);
+        url.searchParams.set('plan', plan || 'free');
+        if (timezone) {
+            url.searchParams.set('timezone', timezone);
+        }
+        if (accounting) {
+            url.searchParams.set('accounting', 'true');
+        }
+
+        try {
+            const response = await fetch(url.toString(), {
+                method: 'POST',
+                body: formData,
+            });
+
+            const data = await response.json();
+
+            if (response.ok || response.status === 207) {
+                return {
+                    success: true,
+                    status: response.status,
+                    data: data,
+                    partial: response.status === 207
+                };
+            } else {
+                return {
+                    success: false,
+                    status: response.status,
+                    error: data.detail || 'An error occurred while processing your files.',
+                    data: data
+                };
+            }
+        } catch (error) {
+            return {
+                success: false,
+                status: 0,
+                error: 'Unable to connect to the server. Please check your connection and try again.'
+            };
+        }
+    },
+
+    /**
      * Ingest a CSV file for preview/detection
      * @param {File} file - The CSV file to ingest
      */

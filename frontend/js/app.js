@@ -6,7 +6,7 @@
 // State
 const state = {
     currentPage: 'landing',
-    selectedFile: null,
+    selectedFiles: [],
     selectedPlan: 'free',
     timezone: 'UTC',
     results: null,
@@ -19,7 +19,8 @@ const state = {
     filteredTransactions: [],
     txPage: 1,
     txPageSize: 25,
-    currentTx: null
+    currentTx: null,
+    reportReadiness: null
 };
 
 // Elements
@@ -43,7 +44,12 @@ const elements = {
     processingTitle: document.getElementById('processing-title'),
     processingStatus: document.getElementById('processing-status'),
     toastContainer: document.getElementById('toast-container'),
-    taxYearSelect: document.getElementById('tax-year-select')
+    taxYearSelect: document.getElementById('tax-year-select'),
+    uploadedReports: document.getElementById('uploaded-reports'),
+    reportsList: document.getElementById('reports-list'),
+    readinessSection: document.getElementById('readiness-section'),
+    readinessStatus: document.getElementById('readiness-status'),
+    readinessDetails: document.getElementById('readiness-details')
 };
 
 // ============================================
@@ -256,20 +262,23 @@ function setupUploadZone() {
     });
 }
 
-function handleFileSelect(file) {
-    if (!file.name.toLowerCase().endsWith('.csv')) {
-        showToast('error', 'Invalid File', 'Please upload a CSV file.');
+function handleFileSelect(files) {
+    if (!files || files.length === 0) return;
+    
+    const validFiles = Array.from(files).filter(f => f.name.toLowerCase().endsWith('.csv'));
+    if (validFiles.length === 0) {
+        showToast('error', 'Invalid File', 'Please upload CSV files only.');
         return;
     }
 
-    state.selectedFile = file;
+    state.selectedFiles = validFiles;
     elements.uploadPrompt.style.display = 'none';
     elements.uploadFileSelected.style.display = 'flex';
-    elements.selectedFileName.textContent = file.name;
-    elements.selectedFileSize.textContent = formatFileSize(file.size);
+    elements.selectedFileName.textContent = validFiles.length === 1 ? validFiles[0].name : `${validFiles.length} files selected`;
+    elements.selectedFileSize.textContent = formatFileSize(validFiles.reduce((sum, f) => sum + f.size, 0));
     elements.processBtn.disabled = false;
 
-    detectExchange(file);
+    detectExchange(validFiles[0]);
 }
 
 async function detectExchange(file) {
@@ -300,13 +309,17 @@ async function detectExchange(file) {
 }
 
 function resetUpload() {
-    state.selectedFile = null;
+    state.selectedFiles = [];
     state.detectedExchange = null;
     state.transactionCount = 0;
     state.planValidation = null;
+    state.reportReadiness = null;
     elements.fileInput.value = '';
     elements.uploadPrompt.style.display = 'flex';
     elements.uploadFileSelected.style.display = 'none';
+    elements.uploadedReports.style.display = 'none';
+    elements.reportsList.innerHTML = '';
+    elements.readinessSection.style.display = 'none';
     elements.processBtn.disabled = true;
     const detectEl = document.getElementById('detected-exchange');
     if (detectEl) {
@@ -324,6 +337,66 @@ function resetUpload() {
     }
 }
 
+function addMoreFiles() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.csv';
+    input.multiple = true;
+    input.onchange = (e) => {
+        if (e.target.files.length > 0) {
+            const newFiles = Array.from(e.target.files).filter(f => f.name.toLowerCase().endsWith('.csv'));
+            if (newFiles.length > 0) {
+                state.selectedFiles = [...state.selectedFiles, ...newFiles];
+                updateUploadedReportsList();
+                elements.selectedFileName.textContent = `${state.selectedFiles.length} files selected`;
+                elements.selectedFileSize.textContent = formatFileSize(state.selectedFiles.reduce((sum, f) => sum + f.size, 0));
+                elements.processBtn.disabled = false;
+            }
+        }
+    };
+    input.click();
+}
+
+function updateUploadedReportsList() {
+    if (!elements.reportsList) return;
+    
+    elements.reportsList.innerHTML = state.selectedFiles.map((file, index) => `
+        <div class="report-card">
+            <div class="report-card-header">
+                <span class="report-card-name">${file.name}</span>
+                <span class="report-card-size">${formatFileSize(file.size)}</span>
+            </div>
+            <div class="report-card-body">
+                <span class="report-card-status">Ready for processing</span>
+            </div>
+        </div>
+    `).join('');
+    
+    elements.uploadedReports.style.display = 'block';
+}
+
+function showReadiness(status, details) {
+    if (!elements.readinessSection) return;
+    
+    elements.readinessSection.style.display = 'block';
+    elements.readinessStatus.textContent = status;
+    
+    const statusClass = status === 'READY_FOR_REVIEW' ? 'success' : 
+                       status === 'REVIEW_REQUIRED' ? 'warning' : 'error';
+    elements.readinessStatus.className = `readiness-status ${statusClass}`;
+    
+    if (details) {
+        elements.readinessDetails.innerHTML = Object.entries(details)
+            .filter(([key]) => key !== 'reason')
+            .map(([key, value]) => `
+                <div class="readiness-detail-item">
+                    <span class="readiness-detail-label">${key.replace(/_/g, ' ')}</span>
+                    <span class="readiness-detail-value">${typeof value === 'boolean' ? (value ? 'Yes' : 'No') : value}</span>
+                </div>
+            `).join('');
+    }
+}
+
 function formatFileSize(bytes) {
     if (bytes < 1024) return bytes + ' B';
     if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
@@ -335,7 +408,7 @@ function formatFileSize(bytes) {
 // ============================================
 
 async function processFile() {
-    if (!state.selectedFile) return;
+    if (!state.selectedFiles || state.selectedFiles.length === 0) return;
     if (state.planValidation === 'over_limit') {
         showToast('error', 'Plan Limit Exceeded', 'Please upgrade your plan to process this file.');
         return;
@@ -346,16 +419,20 @@ async function processFile() {
     const accounting = plan === 'standard' || plan === 'complete';
 
     navigateTo('processing');
-    elements.processingTitle.textContent = 'Processing your report...';
-    elements.processingStatus.textContent = 'Uploading report...';
+    elements.processingTitle.textContent = 'Processing your reports...';
+    elements.processingStatus.textContent = 'Uploading and analyzing reports...';
     elements.progressFill.style.width = '0%';
 
-    const result = await api.processFile(state.selectedFile, timezone, accounting, plan);
+    const result = await api.processFiles(state.selectedFiles, timezone, accounting, plan);
 
     elements.progressFill.style.width = '100%';
 
     if (result.success) {
         state.results = result.data;
+        state.reportReadiness = {
+            status: result.data.readiness_status,
+            details: result.data.readiness_details
+        };
         elements.processingTitle.textContent = 'Analysis complete';
         elements.processingStatus.textContent = 'Preparing results...';
 
@@ -564,13 +641,15 @@ function exportResults(format) {
     const plan = state.selectedPlan || 'free';
     const timezone = document.getElementById('timezone-select')?.value || '';
 
-    if (!state.selectedFile) {
+    if (!state.selectedFiles || state.selectedFiles.length === 0) {
         showToast('error', 'Export Failed', 'No file available for export. Please re-upload your report.');
         return;
     }
 
+    const primaryFile = state.selectedFiles[0];
+
     if (format === 'csv') {
-        api.exportResults(state.results, 'csv', taxYear, state.selectedFile, plan, timezone).then(result => {
+        api.exportResults(state.results, 'csv', taxYear, primaryFile, plan, timezone).then(result => {
             if (result.success) {
                 showToast('success', 'Export Complete', 'Your report is downloading.');
             } else {
@@ -581,7 +660,7 @@ function exportResults(format) {
     }
 
     if (format === 'pdf') {
-        api.exportResults(state.results, 'pdf', taxYear, state.selectedFile, plan, timezone).then(result => {
+        api.exportResults(state.results, 'pdf', taxYear, primaryFile, plan, timezone).then(result => {
             if (result.success) {
                 showToast('success', 'Export Complete', 'Your PDF report is downloading.');
             } else {
@@ -647,7 +726,12 @@ function showToast(type, title, message) {
 
 function renderResults(data) {
     try {
-        document.getElementById('results-source').textContent = `${safeStr(data.source) || 'Unknown'} - ${safeStr(data.report_type) || 'Unknown Report'}`;
+        if (data.reports && data.reports.length > 0) {
+            const reportNames = data.reports.map(r => `${r.exchange} - ${r.report_type}`).join(', ');
+            document.getElementById('results-source').textContent = reportNames;
+        } else {
+            document.getElementById('results-source').textContent = `${safeStr(data.source) || 'Unknown'} - ${safeStr(data.report_type) || 'Unknown Report'}`;
+        }
 
         const summary = data.summary || {};
         document.getElementById('ov-total').textContent = data.transaction_count || 0;

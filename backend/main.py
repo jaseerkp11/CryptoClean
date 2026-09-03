@@ -225,6 +225,71 @@ async def process_csv_endpoint(
     return result
 
 
+@app.post("/api/v1/process-multi", response_model=ProcessingResult)
+async def process_multi_endpoint(
+    request: Request, files: List[UploadFile] = File(...), timezone: Optional[str] = None, accounting: bool = False, plan: str = Plan.FREE
+):
+    if not files:
+        raise HTTPException(status_code=400, detail="At least one file is required.")
+
+    for file in files:
+        if not file.filename:
+            raise HTTPException(status_code=400, detail="Filename is required for all files.")
+        if not file.filename.lower().endswith(".csv"):
+            raise HTTPException(status_code=400, detail="Only CSV files are allowed.")
+        if os.path.sep in file.filename or (os.path.altsep and os.path.altsep in file.filename):
+            raise HTTPException(status_code=400, detail="Invalid filename.")
+        _validate_content_type(file.content_type)
+
+    content_length = request.headers.get("content-length")
+    if content_length and int(content_length) > MAX_FILE_SIZE_BYTES * len(files):
+        raise HTTPException(status_code=400, detail="Total file size is too large.")
+
+    import tempfile
+
+    tmp_paths: List[str] = []
+    try:
+        for file in files:
+            tmp_path = None
+            with tempfile.NamedTemporaryFile(mode="wb", suffix=".csv", delete=False) as tmp:
+                total_size = 0
+                while True:
+                    chunk = await file.read(1024 * 1024)
+                    if not chunk:
+                        break
+                    total_size += len(chunk)
+                    if total_size > MAX_FILE_SIZE_BYTES:
+                        raise ValueError("File is too large.")
+                    tmp.write(chunk)
+                tmp_path = tmp.name
+            tmp_paths.append(tmp_path)
+
+        accounting_config = AccountingConfiguration() if (accounting or get_plan_config(plan).get("accounting")) else None
+        result = pipeline.process_files(tmp_paths, timezone, accounting_config=accounting_config, plan=plan)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail="Internal server error.")
+    finally:
+        for tmp_path in tmp_paths:
+            if tmp_path and os.path.exists(tmp_path):
+                try:
+                    os.remove(tmp_path)
+                except OSError:
+                    pass
+
+    if result.errors:
+        if result.transaction_count == 0:
+            raise HTTPException(status_code=400, detail="; ".join(result.errors))
+        return JSONResponse(
+            status_code=207,
+            content=result.model_dump(mode="json"),
+        )
+    return result
+
+
 @app.post("/api/v1/account")
 async def account_csv_endpoint(
     request: Request, file: UploadFile = File(...), timezone: Optional[str] = None, plan: str = Plan.COMPLETE

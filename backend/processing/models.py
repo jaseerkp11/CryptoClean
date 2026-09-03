@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel
 
 from backend.accounting.models import AccountingResult
 from backend.models.transaction import CanonicalTransaction
 from backend.processing.comments import CommentResult
+from backend.processing.capabilities import ReportCapability
 from backend.reconciliation.converts import ConvertResult
 from backend.reconciliation.duplicates import DuplicateResult
 from backend.reconciliation.transfers import TransferResult
@@ -42,6 +43,19 @@ class ProcessingSummary(BaseModel):
     net_realized_pnl: Optional[str] = None
 
 
+class ReportDetectionInfo(BaseModel):
+    filename: str
+    exchange: str
+    report_type: str
+    confidence: float
+    rows: int
+    columns: int
+    column_names: List[str]
+    warnings: List[str] = []
+    errors: List[str] = []
+    capabilities: List[str] = []
+
+
 class ProcessingResult(BaseModel):
     source: Optional[str] = None
     report_type: Optional[str] = None
@@ -55,6 +69,9 @@ class ProcessingResult(BaseModel):
     errors: List[str] = []
     summary: ProcessingSummary = ProcessingSummary()
     accounting_result: Optional[AccountingResult] = None
+    reports: List[ReportDetectionInfo] = []
+    readiness_status: Optional[str] = None
+    readiness_details: Optional[Dict[str, Any]] = None
 
 
 ProcessingResult.model_rebuild()

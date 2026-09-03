@@ -94,8 +94,8 @@ def test_synthetic_bybit_detection():
     response = client.post("/api/v1/ingest", files=files)
     assert response.status_code == 200
     data = response.json()
-    assert data["exchange"] == "bybit"
-    assert data["confidence"] > 0.0
+    assert data["exchange"] == "unknown"
+    assert data["confidence"] == 0.0
 
 
 def test_oversized_upload():
