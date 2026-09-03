@@ -279,6 +279,7 @@ function handleFileSelect(files) {
     elements.selectedFileSize.textContent = formatFileSize(validFiles.reduce((sum, f) => sum + f.size, 0));
     elements.processBtn.disabled = false;
 
+    updateUploadedReportsList();
     detectExchange(validFiles[0]);
 }
 
