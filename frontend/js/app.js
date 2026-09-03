@@ -359,7 +359,7 @@ function renderPnLCard(accountingResult) {
         pnlCard.style.display = 'block';
         const summary = accountingResult.summary;
         const totalPnL = summary.total_realized_pnl;
-        const currency = summary.pnl_currency || 'USD';
+        const currency = (summary.pnl_currency || 'USD').toString().toUpperCase();
 
         const pnlTotalEl = document.getElementById('pnl-total');
         if (totalPnL !== null && totalPnL !== undefined) {
@@ -379,10 +379,11 @@ function renderPnLCard(accountingResult) {
                 const assetEl = document.createElement('div');
                 assetEl.className = 'pnl-asset';
                 const value = parseFloat(pnl.total_realized_pnl);
+                const pnlCurrency = (pnl.currency || 'USD').toString().toUpperCase();
                 assetEl.innerHTML = `
                     <span class="pnl-asset-name">${pnl.asset}</span>
                     <span class="pnl-asset-value ${value >= 0 ? 'positive' : 'negative'}">
-                        ${value >= 0 ? '+' : ''}${formatCurrency(value, pnl.currency)}
+                        ${value >= 0 ? '+' : ''}${formatCurrency(value, pnlCurrency)}
                     </span>
                 `;
                 breakdownEl.appendChild(assetEl);
@@ -410,7 +411,7 @@ function renderTransactionsTable(transactions) {
                 <td>${formatNumber(tx.quantity)}</td>
                 <td>${tx.price ? formatCurrency(tx.price) : '-'}</td>
                 <td>${tx.value ? formatCurrency(tx.value) : '-'}</td>
-                <td>${tx.fee ? formatCurrency(tx.fee, tx.fee_asset) : '-'}</td>
+                <td>${tx.fee ? formatCurrency(tx.fee, tx.fee_asset || 'USD') : '-'}</td>
                 <td>${tx.wallet || '-'}</td>
             `;
             tbody.appendChild(row);
@@ -517,9 +518,9 @@ function renderAccounting(accountingResult) {
                 <td><span class="badge badge-${getAccountingEventClass(event.event_type)}">${event.event_type}</span></td>
                 <td>${event.asset}</td>
                 <td>${formatNumber(event.quantity)}</td>
-                <td>${event.cost_basis ? formatCurrency(event.cost_basis, event.cost_currency) : '-'}</td>
-                <td>${event.proceeds ? formatCurrency(event.proceeds, event.proceeds_currency) : '-'}</td>
-                <td class="${event.realized_pnl ? (parseFloat(event.realized_pnl) >= 0 ? 'text-positive' : 'text-negative') : ''}">${event.realized_pnl ? formatCurrency(event.realized_pnl, event.pnl_currency) : '-'}</td>
+            <td>${event.cost_basis ? formatCurrency(event.cost_basis, event.cost_currency || 'USD') : '-'}</td>
+            <td>${event.proceeds ? formatCurrency(event.proceeds, event.proceeds_currency || 'USD') : '-'}</td>
+            <td class="${event.realized_pnl ? (parseFloat(event.realized_pnl) >= 0 ? 'text-positive' : 'text-negative') : ''}">${event.realized_pnl ? formatCurrency(event.realized_pnl, event.pnl_currency || 'USD') : '-'}</td>
             </tr>
         `).join('');
     } catch (error) {
@@ -722,5 +723,6 @@ function formatCurrency(value, currency = 'USD') {
     if (value === null || value === undefined) return '-';
     const num = parseFloat(value);
     if (isNaN(num)) return value;
-    return num.toLocaleString('en-US', { style: 'currency', currency: currency, minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const safeCurrency = (currency || 'USD').toString().toUpperCase();
+    return num.toLocaleString('en-US', { style: 'currency', currency: safeCurrency, minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
