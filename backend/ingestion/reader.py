@@ -17,7 +17,7 @@ def _is_valid_header(col) -> bool:
 
 
 def _detect_delimiter(file_path: str) -> str:
-    with open(file_path, "r", encoding="utf-8", errors="replace") as f:
+    with open(file_path, "r", encoding="utf-8-sig", errors="replace") as f:
         sample = f.read(8192)
     try:
         sniffer = csv.Sniffer()
@@ -36,7 +36,7 @@ def _detect_delimiter(file_path: str) -> str:
 
 
 def _check_duplicate_columns(file_path: str, delimiter: str) -> None:
-    with open(file_path, "r", encoding="utf-8", errors="replace", newline="") as f:
+    with open(file_path, "r", encoding="utf-8-sig", errors="replace", newline="") as f:
         reader = csv.reader(f, delimiter=delimiter)
         try:
             header = next(reader)
@@ -69,7 +69,7 @@ def read_csv_safely(file_path: str):
     try:
         delimiter = _detect_delimiter(file_path)
         _check_duplicate_columns(file_path, delimiter)
-        df = pd.read_csv(file_path, sep=delimiter)
+        df = pd.read_csv(file_path, sep=delimiter, encoding="utf-8-sig")
     except pd.errors.EmptyDataError:
         raise ValueError("The CSV file is empty or has no data.")
     except pd.errors.ParserError:

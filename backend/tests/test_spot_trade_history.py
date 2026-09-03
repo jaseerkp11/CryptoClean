@@ -1056,3 +1056,120 @@ def test_api_spot_trade_history_reconciliation_boundary():
     assert data["summary"]["trades"] == 2
     assert len(data["transfer_matches"]["matches"]) == 0
     assert len(data["convert_matches"]["matches"]) == 0
+
+
+# 45. real format detection
+REAL_SPOT_TRADE_HISTORY_CSV = """Time,Pair,Side,Price,Executed,Amount,Fee
+11/27/2022 18:34,ALPINEUSDT,SELL,2.6329,4.17ALPINE,10.979193USDT,0.01097919USDT
+11/27/2022 19:00,TRXUSDT,Buy,0.05,1000TRX,50USDT,0.01USDT
+"""
+
+
+def test_real_format_detected_as_spot_trade_history():
+    adapter = _adapter()
+    rows = [
+        {
+            "Time": "11/27/2022 18:34",
+            "Pair": "ALPINEUSDT",
+            "Side": "SELL",
+            "Price": "2.6329",
+            "Executed": "4.17ALPINE",
+            "Amount": "10.979193USDT",
+            "Fee": "0.01097919USDT",
+        }
+    ]
+    result = adapter.adapt(rows)
+    assert len(result.transactions) == 1
+    tx = result.transactions[0]
+    assert tx.transaction_type == TransactionType.TRADE
+    assert tx.side == Side.SELL
+    assert tx.asset == "ALPINE"
+    assert tx.quantity == Decimal("4.17")
+    assert tx.price == Decimal("2.6329")
+    assert tx.value == Decimal("10.979193")
+    assert tx.fee == Decimal("0.01097919")
+    assert tx.fee_asset == "USDT"
+    assert tx.quote_asset == "USDT"
+
+
+def test_real_format_slash_pair():
+    adapter = _adapter()
+    rows = [
+        {
+            "Time": "11/27/2022 18:34",
+            "Pair": "BTC/USDT",
+            "Side": "BUY",
+            "Price": "30000",
+            "Executed": "0.01BTC",
+            "Amount": "300USDT",
+            "Fee": "0.1BNB",
+        }
+    ]
+    result = adapter.adapt(rows)
+    assert len(result.transactions) == 1
+    tx = result.transactions[0]
+    assert tx.asset == "BTC"
+    assert tx.quote_asset == "USDT"
+    assert tx.quantity == Decimal("0.01")
+    assert tx.value == Decimal("300")
+    assert tx.fee == Decimal("0.1")
+    assert tx.fee_asset == "BNB"
+
+
+def test_real_format_bom_handling():
+    import tempfile
+    import os
+
+    csv_with_bom = "\ufeffTime,Pair,Side,Price,Executed,Amount,Fee\n11/27/2022 18:34,ALPINEUSDT,SELL,2.6329,4.17ALPINE,10.979193USDT,0.01097919USDT\n"
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False, encoding="utf-8-sig") as f:
+        f.write(csv_with_bom)
+        path = f.name
+    try:
+        pipeline = ProcessingPipeline()
+        result = pipeline.process_file(path, "UTC")
+        assert result.transaction_count == 1
+        assert result.source == "binance"
+        assert result.report_type == "spot_trade_history"
+    finally:
+        os.remove(path)
+
+
+def test_real_format_pipeline_integration():
+    pipeline = _pipeline()
+    result = pipeline.process_csv_content(REAL_SPOT_TRADE_HISTORY_CSV, "UTC")
+    assert result.transaction_count == 2
+    assert result.source == "binance"
+    assert result.report_type == "spot_trade_history"
+    trades = [t for t in result.transactions if t.transaction_type == TransactionType.TRADE]
+    assert len(trades) == 2
+
+
+def test_real_format_api():
+    client = TestClient(app)
+    files = {"file": ("real_spot_trades.csv", io.BytesIO(REAL_SPOT_TRADE_HISTORY_CSV.encode("utf-8")), "text/csv")}
+    response = client.post("/api/v1/process?timezone=UTC", files=files)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["source"] == "binance"
+    assert data["report_type"] == "spot_trade_history"
+    assert data["transaction_count"] == 2
+
+
+def test_real_format_quantity_value_relationship():
+    adapter = _adapter()
+    rows = [
+        {
+            "Time": "11/27/2022 18:34",
+            "Pair": "ALPINEUSDT",
+            "Side": "SELL",
+            "Price": "2.6329",
+            "Executed": "4.17ALPINE",
+            "Amount": "10.979193USDT",
+            "Fee": "0.01097919USDT",
+        }
+    ]
+    result = adapter.adapt(rows)
+    assert len(result.transactions) == 1
+    tx = result.transactions[0]
+    expected_value = tx.quantity * tx.price
+    assert tx.value == expected_value

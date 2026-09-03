@@ -319,3 +319,55 @@ def test_unknown_exchange_with_unrelated_columns():
     )
     assert exchange == "unknown"
     assert confidence == 0.0
+
+
+def test_detect_real_binance_spot_trade_history_format():
+    df = pd.DataFrame(
+        {
+            "Time": ["11/27/2022 18:34"],
+            "Pair": ["ALPINEUSDT"],
+            "Side": ["SELL"],
+            "Price": ["2.6329"],
+            "Executed": ["4.17ALPINE"],
+            "Amount": ["10.979193USDT"],
+            "Fee": ["0.01097919USDT"],
+        }
+    )
+    exchange, report_type, confidence, indicators, warnings = detect_exchange(
+        "Binance-Spot-Trade-History-202609031618.csv", df, list(df.columns)
+    )
+    assert exchange == "binance"
+    assert report_type == "spot_trade_history"
+    assert confidence >= 0.55
+    assert len(warnings) == 0
+
+
+def test_detect_real_binance_spot_trade_history_with_bom():
+    import tempfile
+    import os
+
+    csv_with_bom = "\ufeffTime,Pair,Side,Price,Executed,Amount,Fee\n11/27/2022 18:34,ALPINEUSDT,SELL,2.6329,4.17ALPINE,10.979193USDT,0.01097919USDT\n"
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False, encoding="utf-8-sig") as f:
+        f.write(csv_with_bom)
+        path = f.name
+    try:
+        from backend.ingestion.reader import read_csv_safely
+
+        df, row_count, col_count, column_names, warnings = read_csv_safely(path)
+        assert "Time" in column_names
+        assert "Pair" in column_names
+        assert row_count == 1
+    finally:
+        os.remove(path)
+
+
+def test_real_spot_trade_history_api_endpoint():
+    csv_content = "Time,Pair,Side,Price,Executed,Amount,Fee\n"
+    csv_content += "11/27/2022 18:34,ALPINEUSDT,SELL,2.6329,4.17ALPINE,10.979193USDT,0.01097919USDT\n"
+    files = {"file": ("Binance-Spot-Trade-History.csv", io.BytesIO(csv_content.encode("utf-8")), "text/csv")}
+    response = client.post("/api/v1/process?timezone=UTC", files=files)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["source"] == "binance"
+    assert data["report_type"] == "spot_trade_history"
+    assert data["transaction_count"] == 1

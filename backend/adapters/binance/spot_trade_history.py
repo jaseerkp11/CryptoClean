@@ -64,7 +64,7 @@ class BinanceSpotTradeHistoryAdapter(BaseAdapter):
                 return parsed
         except ValueError:
             pass
-        for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M:%S.%f", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%dT%H:%M:%S.%f"):
+        for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M:%S.%f", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%dT%H:%M:%S.%f", "%m/%d/%Y %H:%M"):
             try:
                 naive = datetime.strptime(cleaned, fmt)
             except ValueError:
@@ -195,12 +195,11 @@ class BinanceSpotTradeHistoryAdapter(BaseAdapter):
 
                 quantity_raw = quantity_str
                 asset_suffix = None
-                if "/" not in pair_str.upper() and not quote_asset_str:
-                    quantity_str, asset_suffix = self._strip_asset_suffix(quantity_str)
-                    if asset_suffix:
-                        warnings.append(
-                            f"Asset suffix '{asset_suffix}' stripped from quantity for row."
-                        )
+                quantity_str, asset_suffix = self._strip_asset_suffix(quantity_str)
+                if asset_suffix:
+                    warnings.append(
+                        f"Asset suffix '{asset_suffix}' stripped from quantity for row."
+                    )
 
                 quantity = self._parse_decimal(quantity_str, "quantity")
 
@@ -230,7 +229,7 @@ class BinanceSpotTradeHistoryAdapter(BaseAdapter):
                     fee_value = fee_str.strip()
                     if fee_value:
                         fee_suffix = None
-                        if "/" not in pair_str.upper() and not fee_coin_str:
+                        if not fee_coin_str:
                             _, fee_suffix = self._strip_asset_suffix(fee_value)
                         if fee_coin_str:
                             fee_asset = fee_coin_str.strip().upper()

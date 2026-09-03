@@ -26,6 +26,23 @@ EXCHANGE_SIGNATURES = [
     },
     {
         "id": "binance",
+        "report_type": "spot_trade_history",
+        "filename_keywords": ["binance"],
+        "required_columns": [
+            "time",
+            "pair",
+            "side",
+            "price",
+            "executed",
+            "amount",
+        ],
+        "optional_columns": [
+            "fee",
+        ],
+        "sample_value_checks": {},
+    },
+    {
+        "id": "binance",
         "report_type": "transaction_record",
         "filename_keywords": ["binance"],
         "required_columns": [
