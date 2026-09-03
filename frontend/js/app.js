@@ -527,6 +527,20 @@ function formatFileSize(bytes) {
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
 }
 
+function safeString(value) {
+    if (typeof value === 'string') return value;
+    if (Array.isArray(value)) return value.join(', ');
+    if (value && typeof value === 'object') {
+        if (value.detail) return safeString(value.detail);
+        try {
+            return JSON.stringify(value);
+        } catch {
+            return '[Object]';
+        }
+    }
+    return value ? String(value) : '';
+}
+
 // ============================================
 // Process
 // ============================================
@@ -580,11 +594,14 @@ async function processFile() {
             }, 500);
         } else {
             console.error('Processing API error:', result.status, result.error, result.data);
+            const rawError = result.error || result.data || 'Unknown error';
+            const errorMessage = safeString(rawError);
+            const displayMessage = result.status ? `Error ${result.status}: ${errorMessage}` : errorMessage;
             elements.processingTitle.textContent = 'Processing failed';
-            elements.processingStatus.textContent = safeString(result.error || 'Unknown error');
+            elements.processingStatus.textContent = displayMessage;
             elements.progressFill.style.width = '0%';
 
-            showToast('error', 'Processing Failed', safeString(result.error || 'An unknown error occurred.'));
+            showToast('error', 'Processing Failed', displayMessage);
 
             setTimeout(() => {
                 navigateTo('upload');
@@ -592,11 +609,12 @@ async function processFile() {
         }
     } catch (error) {
         console.error('Processing failed:', error);
+        const message = error && typeof error === 'object' && error.message ? error.message : 'An unexpected error occurred.';
         elements.processingTitle.textContent = 'Processing failed';
-        elements.processingStatus.textContent = safeString(error.message || 'An unexpected error occurred.');
+        elements.processingStatus.textContent = safeString(message);
         elements.progressFill.style.width = '0%';
 
-        showToast('error', 'Processing Failed', safeString(error.message || 'An unexpected error occurred. Please try again.'));
+        showToast('error', 'Processing Failed', safeString(message + ' Please try again.'));
 
         setTimeout(() => {
             navigateTo('upload');
