@@ -513,11 +513,18 @@ function exportResults(format) {
     }
 
     const taxYear = elements.taxYearSelect?.value || '';
+    const plan = state.selectedPlan || 'free';
+    const timezone = document.getElementById('timezone-select')?.value || '';
+
+    if (!state.selectedFile) {
+        showToast('error', 'Export Failed', 'No file available for export. Please re-upload your report.');
+        return;
+    }
 
     if (format === 'csv') {
-        api.exportResults(state.results, 'csv', taxYear).then(result => {
+        api.exportResults(state.results, 'csv', taxYear, state.selectedFile, plan, timezone).then(result => {
             if (result.success) {
-                showToast('success', 'CSV Export', 'Your CSV report is downloading.');
+                showToast('success', 'Export Complete', 'Your report is downloading.');
             } else {
                 showToast('error', 'Export Failed', result.error);
             }
@@ -526,9 +533,9 @@ function exportResults(format) {
     }
 
     if (format === 'pdf') {
-        api.exportResults(state.results, 'pdf', taxYear).then(result => {
+        api.exportResults(state.results, 'pdf', taxYear, state.selectedFile, plan, timezone).then(result => {
             if (result.success) {
-                showToast('success', 'PDF Export', 'Your PDF report is downloading.');
+                showToast('success', 'Export Complete', 'Your PDF report is downloading.');
             } else {
                 showToast('error', 'Export Failed', result.error);
             }

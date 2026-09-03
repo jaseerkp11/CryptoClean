@@ -107,23 +107,24 @@ const api = {
      * Export results as CSV or PDF
      * @param {string} format - 'csv' or 'pdf'
      */
-    async exportResults(data, format = 'csv', taxYear = '') {
+    async exportResults(data, format = 'csv', taxYear = '', file = null, plan = 'free', timezone = '') {
         try {
-            let url, method, body;
-            if (format === 'pdf') {
-                url = new URL(`${API_BASE_URL}/api/v1/report/pdf`);
-                method = 'POST';
-                body = JSON.stringify({ data: data, tax_year: taxYear || undefined });
+            const endpoint = format === 'pdf' ? '/api/v1/report/pdf' : '/api/v1/export';
+            const url = new URL(`${API_BASE_URL}${endpoint}`);
+            url.searchParams.set('plan', plan || 'free');
+            if (timezone) url.searchParams.set('timezone', timezone);
+            if (format === 'pdf' && taxYear) url.searchParams.set('tax_year', taxYear);
+
+            const formData = new FormData();
+            if (file) {
+                formData.append('file', file);
             } else {
-                url = new URL(`${API_BASE_URL}/api/v1/export`);
-                method = 'POST';
-                body = JSON.stringify({ data: data, tax_year: taxYear || undefined, format: 'csv' });
+                throw new Error('No file available for export. Please re-upload your report.');
             }
 
             const response = await fetch(url.toString(), {
-                method: method,
-                headers: { 'Content-Type': 'application/json' },
-                body: body
+                method: 'POST',
+                body: formData,
             });
 
             if (response.ok) {
@@ -131,13 +132,26 @@ const api = {
                 const downloadUrl = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = downloadUrl;
-                a.download = `kryptledg-report-${new Date().toISOString().split('T')[0]}.${format === 'pdf' ? 'pdf' : 'csv'}`;
+                const ext = format === 'pdf' ? 'pdf' : 'zip';
+                a.download = `kryptledg-report-${new Date().toISOString().split('T')[0]}.${ext}`;
                 a.click();
                 URL.revokeObjectURL(downloadUrl);
                 return { success: true };
             } else {
-                const errData = await response.json().catch(() => ({}));
-                return { success: false, error: errData.detail || 'Export failed.' };
+                let errorMessage = 'Export failed.';
+                try {
+                    const errData = await response.json();
+                    if (typeof errData.detail === 'string') {
+                        errorMessage = errData.detail;
+                    } else if (errData.detail) {
+                        errorMessage = JSON.stringify(errData.detail);
+                    } else {
+                        errorMessage = 'Export failed.';
+                    }
+                } catch {
+                    errorMessage = `Export failed with status ${response.status}.`;
+                }
+                return { success: false, error: errorMessage };
             }
         } catch (error) {
             return { success: false, error: 'Export failed: ' + error.message };
