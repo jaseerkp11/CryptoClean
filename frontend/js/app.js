@@ -16,7 +16,10 @@ const state = {
     detectedExchange: null,
     transactionCount: 0,
     planValidation: null,
-    filteredTransactions: []
+    filteredTransactions: [],
+    txPage: 1,
+    txPageSize: 25,
+    currentTx: null
 };
 
 // Elements
@@ -423,6 +426,7 @@ function setupTaxYearFilter() {
             const year = select.value;
             if (state.results) {
                 state.filteredTransactions = filterByTaxYear(state.results.transactions || [], year);
+                state.txPage = 1;
                 renderTransactionsTable(state.filteredTransactions);
                 if (state.activeTab !== 'transactions') {
                     document.querySelector('[data-tab="transactions"]')?.click();
@@ -451,25 +455,23 @@ function setupSearch() {
     const filterTransactions = () => {
         const searchTerm = searchInput?.value?.toLowerCase() || '';
         const typeValue = typeFilter?.value || '';
-        const rows = document.querySelectorAll('#transactions-body tr');
-        let visibleCount = 0;
-
-        rows.forEach(row => {
-            const text = row.textContent.toLowerCase();
-            const typeMatch = !typeValue || row.querySelector('.badge')?.textContent === typeValue;
-            const searchMatch = !searchTerm || text.includes(searchTerm);
-            if (typeMatch && searchMatch) {
-                row.style.display = '';
-                visibleCount++;
-            } else {
-                row.style.display = 'none';
-            }
-        });
-
-        const paginationInfo = document.getElementById('pagination-info');
-        if (paginationInfo) {
-            paginationInfo.textContent = `Showing ${visibleCount} transactions`;
+        const allTransactions = state.results?.transactions || [];
+        
+        let filtered = allTransactions;
+        if (searchTerm || typeValue) {
+            filtered = allTransactions.filter(tx => {
+                const text = [
+                    tx.transaction_type, tx.side, tx.asset, tx.wallet, tx.timestamp
+                ].filter(Boolean).join(' ').toLowerCase();
+                const typeMatch = !typeValue || (tx.transaction_type || '').toUpperCase() === typeValue;
+                const searchMatch = !searchTerm || text.includes(searchTerm);
+                return typeMatch && searchMatch;
+            });
         }
+        
+        state.filteredTransactions = filtered;
+        state.txPage = 1;
+        renderTransactionsTable(filtered);
     };
 
     searchInput?.addEventListener('input', filterTransactions);
@@ -500,6 +502,52 @@ function toggleFaq(item) {
         if (answer) answer.style.display = 'block';
         if (icon) icon.style.transform = 'rotate(180deg)';
     }
+}
+
+// ============================================
+// Drawer
+// ============================================
+
+function openDrawer(tx) {
+    state.currentTx = tx;
+    const drawer = document.getElementById('tx-drawer');
+    const overlay = document.getElementById('drawer-overlay');
+    const body = document.getElementById('drawer-body');
+
+    const fields = [
+        ['Transaction ID', safeStr(tx.transaction_id)],
+        ['Type', safeStr(tx.transaction_type)],
+        ['Side', safeStr(tx.side)],
+        ['Asset', safeStr(tx.asset)],
+        ['Quantity', tx.quantity !== null && tx.quantity !== undefined ? fmtNumber(tx.quantity) : '<span class="unresolved">UNRESOLVED</span>'],
+        ['Price', tx.price !== null && tx.price !== undefined ? fmtCurrency(tx.price, tx.price_currency || 'USD') : '<span class="unresolved">UNRESOLVED</span>'],
+        ['Value', tx.value !== null && tx.value !== undefined ? fmtCurrency(tx.value, tx.value_currency || 'USD') : '<span class="unresolved">UNRESOLVED</span>'],
+        ['Fee', tx.fee !== null && tx.fee !== undefined ? fmtCurrency(tx.fee, tx.fee_asset || 'USD') : '<span class="unresolved">UNRESOLVED</span>'],
+        ['Wallet', safeStr(tx.wallet)],
+        ['Timestamp', fmtDate(tx.timestamp)],
+        ['Source', safeStr(tx.source)],
+        ['Notes', safeStr(tx.notes) || '-']
+    ];
+
+    body.innerHTML = fields.map(([label, value]) => `
+        <div class="drawer-field">
+            <span class="drawer-label">${label}</span>
+            <span class="drawer-value">${value}</span>
+        </div>
+    `).join('');
+
+    drawer.classList.add('active');
+    overlay.classList.add('active');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeDrawer() {
+    const drawer = document.getElementById('tx-drawer');
+    const overlay = document.getElementById('drawer-overlay');
+    drawer.classList.remove('active');
+    overlay.classList.remove('active');
+    document.body.style.overflow = '';
+    state.currentTx = null;
 }
 
 // ============================================
@@ -545,8 +593,33 @@ function exportResults(format) {
 }
 
 // ============================================
-// Toast
+// Skeleton Loaders & Empty States
 // ============================================
+
+function showTableSkeleton(tableId, cols, rows = 5) {
+    const tbody = document.querySelector(`#${tableId}`);
+    if (!tbody) return;
+    tbody.innerHTML = Array(rows).fill(0).map(() => `
+        <tr>
+            ${Array(cols).fill(0).map(() => `<td><div class="skeleton skeleton-text" style="width:${60 + Math.random() * 40}%"></div></td>`).join('')}
+        </tr>
+    `).join('');
+}
+
+function showEmptyState(tableId, message = 'No data available') {
+    const tbody = document.querySelector(`#${tableId}`);
+    if (!tbody) return;
+    const cols = tbody.parentElement.querySelector('thead tr')?.children.length || 1;
+    tbody.innerHTML = `<tr><td colspan="${cols}" class="empty-state">${message}</td></tr>`;
+}
+
+function showSectionSkeleton(containerId, lines = 3) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    container.innerHTML = Array(lines).fill(0).map(() => `
+        <div class="skeleton skeleton-text" style="width:${70 + Math.random() * 30}%"></div>
+    `).join('');
+}
 
 function showToast(type, title, message) {
     const toast = document.createElement('div');
@@ -668,13 +741,22 @@ function renderTransactionsTable(transactions) {
         tbody.innerHTML = '';
 
         if (!transactions || transactions.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="9" class="empty-state">No transactions found</td></tr>';
+            showEmptyState('transactions-body', 'No transactions found');
             document.getElementById('pagination-info').textContent = 'Showing 0 transactions';
+            renderPagination(0);
             return;
         }
 
-        transactions.forEach(tx => {
+        const pageSize = state.txPageSize;
+        const totalPages = Math.max(1, Math.ceil(transactions.length / pageSize));
+        if (state.txPage > totalPages) state.txPage = totalPages;
+        const start = (state.txPage - 1) * pageSize;
+        const pageData = transactions.slice(start, start + pageSize);
+
+        pageData.forEach(tx => {
             const row = document.createElement('tr');
+            row.style.cursor = 'pointer';
+            row.title = 'Click for details';
             const sideClass = tx.side === 'BUY' ? 'badge-buy' : tx.side === 'SELL' ? 'badge-sell' : '';
             row.innerHTML = `
                 <td>${fmtDate(tx.timestamp)}</td>
@@ -687,14 +769,58 @@ function renderTransactionsTable(transactions) {
                 <td>${tx.fee !== null && tx.fee !== undefined ? fmtCurrency(tx.fee, tx.fee_asset || 'USD') : '<span class="unresolved">UNRESOLVED</span>'}</td>
                 <td>${safeStr(tx.wallet) || '-'}</td>
             `;
+            row.addEventListener('click', () => openDrawer(tx));
             tbody.appendChild(row);
         });
 
-        document.getElementById('pagination-info').textContent = `Showing ${transactions.length} transactions`;
+        const showing = Math.min(start + pageData.length, transactions.length);
+        document.getElementById('pagination-info').textContent = `Showing ${start + 1}-${showing} of ${transactions.length} transactions`;
+        renderPagination(totalPages);
     } catch (error) {
         console.error('renderTransactionsTable failed:', error);
         throw error;
     }
+}
+
+function renderPagination(totalPages) {
+    const container = document.getElementById('pagination-controls');
+    if (!container) return;
+
+    let html = `
+        <button class="pagination-btn" onclick="goToPage(${state.txPage - 1})" ${state.txPage <= 1 ? 'disabled' : ''}>Previous</button>
+    `;
+
+    const maxVisible = 5;
+    let startPage = Math.max(1, state.txPage - Math.floor(maxVisible / 2));
+    let endPage = Math.min(totalPages, startPage + maxVisible - 1);
+    if (endPage - startPage + 1 < maxVisible) startPage = Math.max(1, endPage - maxVisible + 1);
+
+    if (startPage > 1) {
+        html += `<button class="pagination-btn" onclick="goToPage(1)">1</button>`;
+        if (startPage > 2) html += `<span style="color:var(--primary-400)">...</span>`;
+    }
+
+    for (let i = startPage; i <= endPage; i++) {
+        html += `<button class="pagination-btn ${i === state.txPage ? 'active' : ''}" onclick="goToPage(${i})">${i}</button>`;
+    }
+
+    if (endPage < totalPages) {
+        if (endPage < totalPages - 1) html += `<span style="color:var(--primary-400)">...</span>`;
+        html += `<button class="pagination-btn" onclick="goToPage(${totalPages})">${totalPages}</button>`;
+    }
+
+    html += `
+        <button class="pagination-btn" onclick="goToPage(${state.txPage + 1})" ${state.txPage >= totalPages ? 'disabled' : ''}>Next</button>
+    `;
+
+    container.innerHTML = html;
+}
+
+function goToPage(page) {
+    const totalPages = Math.max(1, Math.ceil((state.filteredTransactions.length || 0) / state.txPageSize));
+    if (page < 1 || page > totalPages) return;
+    state.txPage = page;
+    renderTransactionsTable(state.filteredTransactions);
 }
 
 // ============================================
@@ -781,9 +907,9 @@ function renderAccounting(accountingResult) {
             summaryAcquisitions.textContent = '0';
             summaryDisposals.textContent = '0';
             summaryLots.textContent = '0';
-            document.getElementById('accounting-body').innerHTML = '<tr><td colspan="8" class="empty-state">No accounting data available</td></tr>';
-            document.getElementById('lots-body').innerHTML = '<tr><td colspan="7" class="empty-state">No lots data available</td></tr>';
-            document.getElementById('consumptions-body').innerHTML = '<tr><td colspan="9" class="empty-state">No consumptions data available</td></tr>';
+            showEmptyState('accounting-body', 'No accounting data available');
+            showEmptyState('lots-body', 'No lots data available');
+            showEmptyState('consumptions-body', 'No consumptions data available');
             return;
         }
 
@@ -810,7 +936,7 @@ function renderAccounting(accountingResult) {
                 </tr>
             `).join('');
         } else {
-            accountingBody.innerHTML = '<tr><td colspan="8" class="empty-state">No events found</td></tr>';
+            showEmptyState('accounting-body', 'No events found');
         }
 
         // Lots
@@ -829,7 +955,7 @@ function renderAccounting(accountingResult) {
                 </tr>
             `).join('');
         } else {
-            lotsBody.innerHTML = '<tr><td colspan="7" class="empty-state">No lots found</td></tr>';
+            showEmptyState('lots-body', 'No lots found');
         }
 
         // Consumptions
@@ -850,7 +976,7 @@ function renderAccounting(accountingResult) {
                 </tr>
             `).join('');
         } else {
-            consumptionsBody.innerHTML = '<tr><td colspan="9" class="empty-state">No consumptions found</td></tr>';
+            showEmptyState('consumptions-body', 'No consumptions found');
         }
     } catch (error) {
         console.error('renderAccounting failed:', error);
@@ -917,7 +1043,7 @@ function renderTaxSummary(accountingResult) {
                 </tr>
             `).join('');
         } else {
-            capitalGainsBody.innerHTML = '<tr><td colspan="8" class="empty-state">No capital gains data</td></tr>';
+            showEmptyState('capital-gains-body', 'No capital gains data');
         }
 
         // Income
@@ -935,7 +1061,7 @@ function renderTaxSummary(accountingResult) {
                 </tr>
             `).join('');
         } else {
-            incomeBody.innerHTML = '<tr><td colspan="6" class="empty-state">No income data</td></tr>';
+            showEmptyState('income-body', 'No income data');
         }
     } catch (error) {
         console.error('renderTaxSummary failed:', error);
@@ -983,7 +1109,7 @@ function renderHoldings(accountingResult) {
                 `;
             }).join('');
         } else {
-            holdingsBody.innerHTML = '<tr><td colspan="5" class="empty-state">No holdings found</td></tr>';
+            showEmptyState('holdings-body', 'No holdings found');
         }
     } catch (error) {
         console.error('renderHoldings failed:', error);
@@ -1013,7 +1139,7 @@ function renderMissingBasis(accountingResult) {
                 </tr>
             `).join('');
         } else {
-            missingBody.innerHTML = '<tr><td colspan="6" class="empty-state">All disposals have cost basis</td></tr>';
+            showEmptyState('missing-basis-body', 'All disposals have cost basis');
         }
     } catch (error) {
         console.error('renderMissingBasis failed:', error);
@@ -1025,6 +1151,17 @@ function renderMissingBasis(accountingResult) {
 // Exceptions & Review
 // ============================================
 
+function groupWarnings(warnings) {
+    const groups = {};
+    warnings.forEach(w => {
+        const key = safeStr(w.code) || safeStr(w.message) || 'general';
+        if (!groups[key]) groups[key] = { code: key, items: [], count: 0 };
+        groups[key].items.push(w);
+        groups[key].count++;
+    });
+    return Object.values(groups);
+}
+
 function renderExceptions(data, accountingResult) {
     try {
         // Processing warnings
@@ -1033,12 +1170,24 @@ function renderExceptions(data, accountingResult) {
         document.getElementById('proc-warning-count').textContent = warnings.length;
 
         if (warnings.length > 0) {
-            procWarningsList.innerHTML = warnings.map(w => `
-                <div class="warning-item warning">
-                    <div class="warning-icon">
-                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 6V10M10 14H10.01M19 10C19 14.9706 14.9706 19 10 19C5.02944 19 1 14.9706 1 10C1 5.02944 5.02944 1 10 1C14.9706 1 19 5.02944 19 10Z" stroke="#F59E0B" stroke-width="2"/></svg>
+            const groups = groupWarnings(warnings);
+            procWarningsList.innerHTML = groups.map(group => `
+                <div class="warning-group">
+                    <div class="warning-group-header">
+                        <span class="warning-group-code">${safeStr(group.code) || 'Warning'}</span>
+                        <span class="warning-group-count">${group.count}</span>
                     </div>
-                    <div class="warning-content"><div class="warning-message">${safeStr(w) || 'UNKNOWN'}</div></div>
+                    <div class="warning-group-items">
+                        ${group.items.slice(0, 5).map(w => `
+                            <div class="warning-item warning">
+                                <div class="warning-icon">
+                                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 6V10M10 14H10.01M19 10C19 14.9706 14.9706 19 10 19C5.02944 19 1 14.9706 1 10C1 5.02944 5.02944 19 10 1C14.9706 1 19 5.02944 19 10Z" stroke="#F59E0B" stroke-width="2"/></svg>
+                                </div>
+                                <div class="warning-content"><div class="warning-message">${safeStr(w.message || w) || 'UNKNOWN'}</div></div>
+                            </div>
+                        `).join('')}
+                        ${group.items.length > 5 ? `<div class="warning-more">+${group.items.length - 5} more</div>` : ''}
+                    </div>
                 </div>
             `).join('');
         } else {
@@ -1051,14 +1200,26 @@ function renderExceptions(data, accountingResult) {
         document.getElementById('quality-issue-count').textContent = accountingWarnings.length;
 
         if (accountingWarnings.length > 0) {
-            qualityIssuesList.innerHTML = accountingWarnings.map(w => `
-                <div class="warning-item info">
-                    <div class="warning-icon">
-                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 6V10M10 14H10.01M19 10C19 14.9706 14.9706 19 10 19C5.02944 19 1 14.9706 1 10C1 5.02944 5.02944 1 10 1C14.9706 1 19 5.02944 19 10Z" stroke="#6366F1" stroke-width="2"/></svg>
+            const groups = groupWarnings(accountingWarnings);
+            qualityIssuesList.innerHTML = groups.map(group => `
+                <div class="warning-group">
+                    <div class="warning-group-header">
+                        <span class="warning-group-code">${safeStr(group.code) || 'Issue'}</span>
+                        <span class="warning-group-count">${group.count}</span>
                     </div>
-                    <div class="warning-content">
-                        <div class="warning-message">${safeStr(w.message) || 'UNKNOWN'}</div>
-                        ${w.source_transaction_id ? `<div class="warning-detail">Source: ${safeStr(w.source_transaction_id)}</div>` : ''}
+                    <div class="warning-group-items">
+                        ${group.items.slice(0, 5).map(w => `
+                            <div class="warning-item info">
+                                <div class="warning-icon">
+                                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 6V10M10 14H10.01M19 10C19 14.9706 14.9706 19 10 19C5.02944 19 1 14.9706 1 10C1 5.02944 5.02944 19 10 1C14.9706 1 19 5.02944 19 10Z" stroke="#6366F1" stroke-width="2"/></svg>
+                                </div>
+                                <div class="warning-content">
+                                    <div class="warning-message">${safeStr(w.message) || 'UNKNOWN'}</div>
+                                    ${w.source_transaction_id ? `<div class="warning-detail">Source: ${safeStr(w.source_transaction_id)}</div>` : ''}
+                                </div>
+                            </div>
+                        `).join('')}
+                        ${group.items.length > 5 ? `<div class="warning-more">+${group.items.length - 5} more</div>` : ''}
                     </div>
                 </div>
             `).join('');
@@ -1072,12 +1233,29 @@ function renderExceptions(data, accountingResult) {
         document.getElementById('error-count').textContent = errors.length;
 
         if (errors.length > 0) {
-            errorsList.innerHTML = errors.map(e => `
-                <div class="warning-item error">
-                    <div class="warning-icon">
-                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 6V10M10 14H10.01M19 10C19 14.9706 14.9706 19 10 19C5.02944 19 1 14.9706 1 10C1 5.02944 5.02944 1 10 1C14.9706 1 19 5.02944 19 10Z" stroke="#EF4444" stroke-width="2"/></svg>
+            const errorItems = errors.map(e => ({
+                code: safeStr(e.code) || safeStr(e.message) || 'error',
+                message: safeStr(e.message || e) || 'UNKNOWN',
+                source: safeStr(e.source_transaction_id)
+            }));
+            const groups = groupWarnings(errorItems);
+            errorsList.innerHTML = groups.map(group => `
+                <div class="warning-group">
+                    <div class="warning-group-header">
+                        <span class="warning-group-code">${safeStr(group.code) || 'Error'}</span>
+                        <span class="warning-group-count">${group.count}</span>
                     </div>
-                    <div class="warning-content"><div class="warning-message">${safeStr(e.message || e) || 'UNKNOWN'}</div></div>
+                    <div class="warning-group-items">
+                        ${group.items.slice(0, 5).map(w => `
+                            <div class="warning-item error">
+                                <div class="warning-icon">
+                                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 6V10M10 14H10.01M19 10C19 14.9706 14.9706 19 10 19C5.02944 19 1 14.9706 1 10C1 5.02944 5.02944 19 10 1C14.9706 1 19 5.02944 19 10Z" stroke="#EF4444" stroke-width="2"/></svg>
+                                </div>
+                                <div class="warning-content"><div class="warning-message">${w.message}</div></div>
+                            </div>
+                        `).join('')}
+                        ${group.items.length > 5 ? `<div class="warning-more">+${group.items.length - 5} more</div>` : ''}
+                    </div>
                 </div>
             `).join('');
         } else {
@@ -1114,7 +1292,7 @@ function renderAuditTrail(accountingResult) {
                 </tr>
             `).join('');
         } else {
-            auditBody.innerHTML = '<tr><td colspan="10" class="empty-state">No audit trail data</td></tr>';
+            showEmptyState('audit-body', 'No audit trail data');
         }
     } catch (error) {
         console.error('renderAuditTrail failed:', error);
