@@ -94,12 +94,17 @@ const api = {
      * @param {boolean} accounting - Whether to include accounting calculations
      */
     async processFiles(files, timezone, accounting = false, plan = 'free') {
+        const isSingleFile = files.length === 1;
+        const endpoint = accounting
+            ? (isSingleFile ? '/api/v1/account' : '/api/v1/process-multi')
+            : (isSingleFile ? '/api/v1/process' : '/api/v1/process-multi');
+
         const formData = new FormData();
+        const fieldName = isSingleFile ? 'file' : 'files';
         for (const file of files) {
-            formData.append('files', file);
+            formData.append(fieldName, file);
         }
 
-        const endpoint = accounting ? '/api/v1/account' : '/api/v1/process-multi';
         const url = new URL(`${API_BASE_URL}${endpoint}`);
         url.searchParams.set('plan', plan || 'free');
         if (timezone) {
