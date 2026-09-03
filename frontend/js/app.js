@@ -1,5 +1,5 @@
 /**
- * CryptoClean Frontend Application
+ * KryptLedg Frontend Application
  * Premium Fintech SaaS - Functional Finalization
  */
 
@@ -674,7 +674,7 @@ function exportResults() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `cryptoclean-results-${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = `kryptledg-results-${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
     URL.revokeObjectURL(url);
 

@@ -1,5 +1,5 @@
 /**
- * CryptoClean API Client
+ * KryptLedg API Client
  * Handles all communication with the backend API
  */
 
