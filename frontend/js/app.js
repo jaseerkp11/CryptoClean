@@ -306,7 +306,8 @@ async function processFile() {
                 }
             } catch (error) {
                 console.error('Results rendering failed:', error);
-                showToast('error', 'Display Error', 'Could not display results. Please try again or contact support.');
+                const errorMessage = error && error.message ? error.message : 'Could not display results. Please try again or contact support.';
+                showToast('error', 'Display Error', errorMessage);
                 navigateTo('upload');
             }
         }, 500);
@@ -325,181 +326,206 @@ async function processFile() {
 
 // Render Results
 function renderResults(data) {
-    document.getElementById('results-source').textContent = `${data.source || 'Unknown'} - ${data.report_type || 'Unknown Report'}`;
+    try {
+        document.getElementById('results-source').textContent = `${data.source || 'Unknown'} - ${data.report_type || 'Unknown Report'}`;
 
-    const summary = data.summary || {};
-    document.getElementById('stat-total').textContent = data.transaction_count || 0;
-    document.getElementById('stat-trades').textContent = summary.trades || 0;
-    document.getElementById('stat-transfers').textContent = summary.transfers || 0;
-    document.getElementById('stat-deposits').textContent = summary.deposits || 0;
-    document.getElementById('stat-withdrawals').textContent = summary.withdrawals || 0;
-    document.getElementById('stat-fees').textContent = summary.fees || 0;
+        const summary = data.summary || {};
+        document.getElementById('stat-total').textContent = data.transaction_count || 0;
+        document.getElementById('stat-trades').textContent = summary.trades || 0;
+        document.getElementById('stat-transfers').textContent = summary.transfers || 0;
+        document.getElementById('stat-deposits').textContent = summary.deposits || 0;
+        document.getElementById('stat-withdrawals').textContent = summary.withdrawals || 0;
+        document.getElementById('stat-fees').textContent = summary.fees || 0;
 
-    renderPnLCard(data.accounting_result);
-    renderTransactionsTable(data.transactions || []);
-    renderReconciliation(data);
-    renderAccounting(data.accounting_result);
-    renderWarnings(data);
+        renderPnLCard(data.accounting_result);
+        renderTransactionsTable(data.transactions || []);
+        renderReconciliation(data);
+        renderAccounting(data.accounting_result);
+        renderWarnings(data);
+    } catch (error) {
+        console.error('renderResults failed:', error);
+        throw error;
+    }
 }
 
 function renderPnLCard(accountingResult) {
-    const pnlCard = document.getElementById('pnl-card');
-    if (!accountingResult || !accountingResult.summary) {
-        pnlCard.style.display = 'none';
-        return;
-    }
+    try {
+        const pnlCard = document.getElementById('pnl-card');
+        if (!accountingResult || !accountingResult.summary) {
+            pnlCard.style.display = 'none';
+            return;
+        }
 
-    pnlCard.style.display = 'block';
-    const summary = accountingResult.summary;
-    const totalPnL = summary.total_realized_pnl;
-    const currency = summary.pnl_currency || 'USD';
+        pnlCard.style.display = 'block';
+        const summary = accountingResult.summary;
+        const totalPnL = summary.total_realized_pnl;
+        const currency = summary.pnl_currency || 'USD';
 
-    const pnlTotalEl = document.getElementById('pnl-total');
-    if (totalPnL !== null && totalPnL !== undefined) {
-        const pnlValue = parseFloat(totalPnL);
-        pnlTotalEl.textContent = (pnlValue >= 0 ? '+' : '') + formatCurrency(pnlValue, currency);
-        pnlTotalEl.className = 'pnl-value ' + (pnlValue >= 0 ? 'positive' : 'negative');
-    } else {
-        pnlTotalEl.textContent = '--';
-        pnlTotalEl.className = 'pnl-value';
-    }
+        const pnlTotalEl = document.getElementById('pnl-total');
+        if (totalPnL !== null && totalPnL !== undefined) {
+            const pnlValue = parseFloat(totalPnL);
+            pnlTotalEl.textContent = (pnlValue >= 0 ? '+' : '') + formatCurrency(pnlValue, currency);
+            pnlTotalEl.className = 'pnl-value ' + (pnlValue >= 0 ? 'positive' : 'negative');
+        } else {
+            pnlTotalEl.textContent = '--';
+            pnlTotalEl.className = 'pnl-value';
+        }
 
-    const breakdownEl = document.getElementById('pnl-breakdown');
-    breakdownEl.innerHTML = '';
+        const breakdownEl = document.getElementById('pnl-breakdown');
+        breakdownEl.innerHTML = '';
 
-    if (accountingResult.realized_pnl && accountingResult.realized_pnl.length > 0) {
-        accountingResult.realized_pnl.forEach(pnl => {
-            const assetEl = document.createElement('div');
-            assetEl.className = 'pnl-asset';
-            const value = parseFloat(pnl.total_realized_pnl);
-            assetEl.innerHTML = `
-                <span class="pnl-asset-name">${pnl.asset}</span>
-                <span class="pnl-asset-value ${value >= 0 ? 'positive' : 'negative'}">
-                    ${value >= 0 ? '+' : ''}${formatCurrency(value, pnl.currency)}
-                </span>
-            `;
-            breakdownEl.appendChild(assetEl);
-        });
+        if (accountingResult.realized_pnl && accountingResult.realized_pnl.length > 0) {
+            accountingResult.realized_pnl.forEach(pnl => {
+                const assetEl = document.createElement('div');
+                assetEl.className = 'pnl-asset';
+                const value = parseFloat(pnl.total_realized_pnl);
+                assetEl.innerHTML = `
+                    <span class="pnl-asset-name">${pnl.asset}</span>
+                    <span class="pnl-asset-value ${value >= 0 ? 'positive' : 'negative'}">
+                        ${value >= 0 ? '+' : ''}${formatCurrency(value, pnl.currency)}
+                    </span>
+                `;
+                breakdownEl.appendChild(assetEl);
+            });
+        }
+    } catch (error) {
+        console.error('renderPnLCard failed:', error);
+        throw error;
     }
 }
 
 function renderTransactionsTable(transactions) {
-    const tbody = document.getElementById('transactions-body');
-    tbody.innerHTML = '';
+    try {
+        const tbody = document.getElementById('transactions-body');
+        tbody.innerHTML = '';
 
-    transactions.forEach(tx => {
-        const row = document.createElement('tr');
-        const sideClass = tx.side === 'BUY' ? 'badge-buy' : tx.side === 'SELL' ? 'badge-sell' : '';
-        row.innerHTML = `
-            <td>${formatDate(tx.timestamp)}</td>
-            <td><span class="badge badge-${(tx.transaction_type || 'unknown').toLowerCase()}">${tx.transaction_type}</span></td>
-            <td>${tx.side ? `<span class="badge ${sideClass}">${tx.side}</span>` : '-'}</td>
-            <td>${tx.asset}</td>
-            <td>${formatNumber(tx.quantity)}</td>
-            <td>${tx.price ? formatCurrency(tx.price) : '-'}</td>
-            <td>${tx.value ? formatCurrency(tx.value) : '-'}</td>
-            <td>${tx.fee ? formatCurrency(tx.fee, tx.fee_asset) : '-'}</td>
-            <td>${tx.wallet || '-'}</td>
-        `;
-        tbody.appendChild(row);
-    });
+        transactions.forEach(tx => {
+            const row = document.createElement('tr');
+            const sideClass = tx.side === 'BUY' ? 'badge-buy' : tx.side === 'SELL' ? 'badge-sell' : '';
+            row.innerHTML = `
+                <td>${formatDate(tx.timestamp)}</td>
+                <td><span class="badge badge-${(tx.transaction_type || 'unknown').toLowerCase()}">${tx.transaction_type}</span></td>
+                <td>${tx.side ? `<span class="badge ${sideClass}">${tx.side}</span>` : '-'}</td>
+                <td>${tx.asset}</td>
+                <td>${formatNumber(tx.quantity)}</td>
+                <td>${tx.price ? formatCurrency(tx.price) : '-'}</td>
+                <td>${tx.value ? formatCurrency(tx.value) : '-'}</td>
+                <td>${tx.fee ? formatCurrency(tx.fee, tx.fee_asset) : '-'}</td>
+                <td>${tx.wallet || '-'}</td>
+            `;
+            tbody.appendChild(row);
+        });
 
-    document.getElementById('pagination-info').textContent = `Showing ${transactions.length} transactions`;
+        document.getElementById('pagination-info').textContent = `Showing ${transactions.length} transactions`;
+    } catch (error) {
+        console.error('renderTransactionsTable failed:', error);
+        throw error;
+    }
 }
 
 function renderReconciliation(data) {
-    const transfersContent = document.getElementById('transfers-content');
-    const transferMatches = data.transfer_matches?.matches || [];
-    document.getElementById('transfer-count').textContent = `${transferMatches.length} matched`;
+    try {
+        const transfersContent = document.getElementById('transfers-content');
+        const transferMatches = data.transfer_matches?.matches || [];
+        document.getElementById('transfer-count').textContent = `${transferMatches.length} matched`;
 
-    if (transferMatches.length > 0) {
-        transfersContent.innerHTML = transferMatches.map(match => `
-            <div class="recon-item">
-                <div class="recon-item-header">
-                    <span class="recon-item-title">${match.asset} - ${formatNumber(match.quantity)}</span>
-                    <span class="recon-item-detail">${formatDate(match.timestamp)}</span>
+        if (transferMatches.length > 0) {
+            transfersContent.innerHTML = transferMatches.map(match => `
+                <div class="recon-item">
+                    <div class="recon-item-header">
+                        <span class="recon-item-title">${match.asset} - ${formatNumber(match.quantity)}</span>
+                        <span class="recon-item-detail">${formatDate(match.timestamp)}</span>
+                    </div>
+                    <div class="recon-item-detail">From: ${match.source_account || 'Unknown'} → To: ${match.destination_account || 'Unknown'}</div>
+                    <div class="reasons-list">${match.reasons.map(r => `<span class="reason-tag">${r}</span>`).join('')}</div>
                 </div>
-                <div class="recon-item-detail">From: ${match.source_account || 'Unknown'} → To: ${match.destination_account || 'Unknown'}</div>
-                <div class="reasons-list">${match.reasons.map(r => `<span class="reason-tag">${r}</span>`).join('')}</div>
-            </div>
-        `).join('');
-    } else {
-        transfersContent.innerHTML = '<p class="empty-state">No internal transfers detected</p>';
-    }
+            `).join('');
+        } else {
+            transfersContent.innerHTML = '<p class="empty-state">No internal transfers detected</p>';
+        }
 
-    const duplicatesContent = document.getElementById('duplicates-content');
-    const duplicateGroups = data.duplicate_findings?.groups || [];
-    document.getElementById('duplicate-count').textContent = `${duplicateGroups.length} found`;
+        const duplicatesContent = document.getElementById('duplicates-content');
+        const duplicateGroups = data.duplicate_findings?.groups || [];
+        document.getElementById('duplicate-count').textContent = `${duplicateGroups.length} found`;
 
-    if (duplicateGroups.length > 0) {
-        duplicatesContent.innerHTML = duplicateGroups.map(group => `
-            <div class="recon-item">
-                <div class="recon-item-header">
-                    <span class="recon-item-title">${group.classification.replace(/_/g, ' ')}</span>
-                    <span class="recon-item-detail">Score: ${group.score}</span>
+        if (duplicateGroups.length > 0) {
+            duplicatesContent.innerHTML = duplicateGroups.map(group => `
+                <div class="recon-item">
+                    <div class="recon-item-header">
+                        <span class="recon-item-title">${group.classification.replace(/_/g, ' ')}</span>
+                        <span class="recon-item-detail">Score: ${group.score}</span>
+                    </div>
+                    <div class="recon-item-detail">${group.transaction_ids.length} transactions: ${group.transaction_ids.slice(0, 3).join(', ')}${group.transaction_ids.length > 3 ? '...' : ''}</div>
+                    <div class="reasons-list">${group.reasons.map(r => `<span class="reason-tag">${r}</span>`).join('')}</div>
                 </div>
-                <div class="recon-item-detail">${group.transaction_ids.length} transactions: ${group.transaction_ids.slice(0, 3).join(', ')}${group.transaction_ids.length > 3 ? '...' : ''}</div>
-                <div class="reasons-list">${group.reasons.map(r => `<span class="reason-tag">${r}</span>`).join('')}</div>
-            </div>
-        `).join('');
-    } else {
-        duplicatesContent.innerHTML = '<p class="empty-state">No duplicates detected</p>';
-    }
+            `).join('');
+        } else {
+            duplicatesContent.innerHTML = '<p class="empty-state">No duplicates detected</p>';
+        }
 
-    const convertsContent = document.getElementById('converts-content');
-    const convertMatches = data.convert_matches?.matches || [];
-    document.getElementById('convert-count').textContent = `${convertMatches.length} found`;
+        const convertsContent = document.getElementById('converts-content');
+        const convertMatches = data.convert_matches?.matches || [];
+        document.getElementById('convert-count').textContent = `${convertMatches.length} found`;
 
-    if (convertMatches.length > 0) {
-        convertsContent.innerHTML = convertMatches.map(match => `
-            <div class="recon-item">
-                <div class="recon-item-header">
-                    <span class="recon-item-title">${match.input_asset} → ${match.output_asset}</span>
-                    <span class="recon-item-detail">${formatDate(match.timestamp)}</span>
+        if (convertMatches.length > 0) {
+            convertsContent.innerHTML = convertMatches.map(match => `
+                <div class="recon-item">
+                    <div class="recon-item-header">
+                        <span class="recon-item-title">${match.input_asset} → ${match.output_asset}</span>
+                        <span class="recon-item-detail">${formatDate(match.timestamp)}</span>
+                    </div>
+                    <div class="recon-item-detail">Sold: ${formatNumber(match.input_quantity)} ${match.input_asset} → Bought: ${formatNumber(match.output_quantity)} ${match.output_asset}</div>
+                    <div class="reasons-list">${match.reasons.map(r => `<span class="reason-tag">${r}</span>`).join('')}</div>
                 </div>
-                <div class="recon-item-detail">Sold: ${formatNumber(match.input_quantity)} ${match.input_asset} → Bought: ${formatNumber(match.output_quantity)} ${match.output_asset}</div>
-                <div class="reasons-list">${match.reasons.map(r => `<span class="reason-tag">${r}</span>`).join('')}</div>
-            </div>
-        `).join('');
-    } else {
-        convertsContent.innerHTML = '<p class="empty-state">No convert events detected</p>';
+            `).join('');
+        } else {
+            convertsContent.innerHTML = '<p class="empty-state">No convert events detected</p>';
+        }
+    } catch (error) {
+        console.error('renderReconciliation failed:', error);
+        throw error;
     }
 }
 
 function renderAccounting(accountingResult) {
-    const summaryEvents = document.getElementById('acct-events');
-    const summaryAcquisitions = document.getElementById('acct-acquisitions');
-    const summaryDisposals = document.getElementById('acct-disposals');
-    const summaryLots = document.getElementById('acct-lots');
-    const accountingBody = document.getElementById('accounting-body');
+    try {
+        const summaryEvents = document.getElementById('acct-events');
+        const summaryAcquisitions = document.getElementById('acct-acquisitions');
+        const summaryDisposals = document.getElementById('acct-disposals');
+        const summaryLots = document.getElementById('acct-lots');
+        const accountingBody = document.getElementById('accounting-body');
 
-    if (!accountingResult || !accountingResult.summary) {
-        summaryEvents.textContent = '0';
-        summaryAcquisitions.textContent = '0';
-        summaryDisposals.textContent = '0';
-        summaryLots.textContent = '0';
-        accountingBody.innerHTML = '<tr><td colspan="7" class="empty-state">No accounting data available</td></tr>';
-        return;
+        if (!accountingResult || !accountingResult.summary) {
+            summaryEvents.textContent = '0';
+            summaryAcquisitions.textContent = '0';
+            summaryDisposals.textContent = '0';
+            summaryLots.textContent = '0';
+            accountingBody.innerHTML = '<tr><td colspan="7" class="empty-state">No accounting data available</td></tr>';
+            return;
+        }
+
+        const summary = accountingResult.summary;
+        summaryEvents.textContent = summary.total_events || 0;
+        summaryAcquisitions.textContent = summary.acquisition_events || 0;
+        summaryDisposals.textContent = summary.disposal_events || 0;
+        summaryLots.textContent = summary.total_lots_created || 0;
+
+        const events = accountingResult.events || [];
+        accountingBody.innerHTML = events.map(event => `
+            <tr>
+                <td>${formatDate(event.timestamp)}</td>
+                <td><span class="badge badge-${getAccountingEventClass(event.event_type)}">${event.event_type}</span></td>
+                <td>${event.asset}</td>
+                <td>${formatNumber(event.quantity)}</td>
+                <td>${event.cost_basis ? formatCurrency(event.cost_basis, event.cost_currency) : '-'}</td>
+                <td>${event.proceeds ? formatCurrency(event.proceeds, event.proceeds_currency) : '-'}</td>
+                <td class="${event.realized_pnl ? (parseFloat(event.realized_pnl) >= 0 ? 'text-positive' : 'text-negative') : ''}">${event.realized_pnl ? formatCurrency(event.realized_pnl, event.pnl_currency) : '-'}</td>
+            </tr>
+        `).join('');
+    } catch (error) {
+        console.error('renderAccounting failed:', error);
+        throw error;
     }
-
-    const summary = accountingResult.summary;
-    summaryEvents.textContent = summary.total_events || 0;
-    summaryAcquisitions.textContent = summary.acquisition_events || 0;
-    summaryDisposals.textContent = summary.disposal_events || 0;
-    summaryLots.textContent = summary.total_lots_created || 0;
-
-    const events = accountingResult.events || [];
-    accountingBody.innerHTML = events.map(event => `
-        <tr>
-            <td>${formatDate(event.timestamp)}</td>
-            <td><span class="badge badge-${getAccountingEventClass(event.event_type)}">${event.event_type}</span></td>
-            <td>${event.asset}</td>
-            <td>${formatNumber(event.quantity)}</td>
-            <td>${event.cost_basis ? formatCurrency(event.cost_basis, event.cost_currency) : '-'}</td>
-            <td>${event.proceeds ? formatCurrency(event.proceeds, event.proceeds_currency) : '-'}</td>
-            <td class="${event.realized_pnl ? (parseFloat(event.realized_pnl) >= 0 ? 'text-positive' : 'text-negative') : ''}">${event.realized_pnl ? formatCurrency(event.realized_pnl, event.pnl_currency) : '-'}</td>
-        </tr>
-    `).join('');
 }
 
 function getAccountingEventClass(type) {
@@ -508,6 +534,7 @@ function getAccountingEventClass(type) {
 }
 
 function renderWarnings(data) {
+    try {
     const warningsList = document.getElementById('warnings-list');
     const qualityList = document.getElementById('quality-list');
     const warnings = data.warnings || [];
@@ -541,6 +568,10 @@ function renderWarnings(data) {
         `).join('');
     } else {
         qualityList.innerHTML = '<p class="empty-state">No data quality issues</p>';
+    }
+    } catch (error) {
+        console.error('renderWarnings failed:', error);
+        throw error;
     }
 }
 
