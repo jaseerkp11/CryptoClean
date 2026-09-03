@@ -103,7 +103,7 @@ const api = {
             formData.append('files', file);
         }
 
-        const endpoint = accounting ? '/api/v1/account' : '/api/v1/process-multi';
+        const endpoint = '/api/v1/process-multi';
         const url = new URL(`${API_BASE_URL}${endpoint}`);
         url.searchParams.set('plan', plan || 'free');
         if (timezone) {
