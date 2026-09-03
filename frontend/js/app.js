@@ -737,6 +737,7 @@ function renderPnLCard(accountingResult) {
 
 function renderTransactionsTable(transactions) {
     try {
+        state.filteredTransactions = transactions || [];
         const tbody = document.getElementById('transactions-body');
         tbody.innerHTML = '';
 
