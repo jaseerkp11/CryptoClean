@@ -424,42 +424,55 @@ async function processFile() {
     elements.processingStatus.textContent = 'Uploading and analyzing reports...';
     elements.progressFill.style.width = '0%';
 
-    const result = await api.processFiles(state.selectedFiles, timezone, accounting, plan);
+    try {
+        const result = await api.processFiles(state.selectedFiles, timezone, accounting, plan);
 
-    elements.progressFill.style.width = '100%';
+        elements.progressFill.style.width = '100%';
 
-    if (result.success) {
-        state.results = result.data;
-        state.reportReadiness = {
-            status: result.data.readiness_status,
-            details: result.data.readiness_details
-        };
-        elements.processingTitle.textContent = 'Analysis complete';
-        elements.processingStatus.textContent = 'Preparing results...';
+        if (result.success) {
+            state.results = result.data;
+            state.reportReadiness = {
+                status: result.data.readiness_status,
+                details: result.data.readiness_details
+            };
+            elements.processingTitle.textContent = 'Analysis complete';
+            elements.processingStatus.textContent = 'Preparing results...';
 
-        setTimeout(() => {
-            try {
-                renderResults(result.data);
-                navigateTo('results');
+            setTimeout(() => {
+                try {
+                    renderResults(result.data);
+                    navigateTo('results');
 
-                if (result.partial) {
-                    showToast('warning', 'Partial Success', 'Some transactions could not be processed. Check the Exceptions tab for details.');
-                } else {
-                    showToast('success', 'Success', 'Your report has been processed successfully.');
+                    if (result.partial) {
+                        showToast('warning', 'Partial Success', 'Some transactions could not be processed. Check the Exceptions tab for details.');
+                    } else {
+                        showToast('success', 'Success', 'Your report has been processed successfully.');
+                    }
+                } catch (error) {
+                    console.error('Results rendering failed:', error);
+                    const errorMessage = error && error.message ? error.message : 'Could not display results. Please try again or contact support.';
+                    showToast('error', 'Display Error', errorMessage);
+                    navigateTo('upload');
                 }
-            } catch (error) {
-                console.error('Results rendering failed:', error);
-                const errorMessage = error && error.message ? error.message : 'Could not display results. Please try again or contact support.';
-                showToast('error', 'Display Error', errorMessage);
+            }, 500);
+        } else {
+            elements.processingTitle.textContent = 'Processing failed';
+            elements.processingStatus.textContent = result.error || 'Unknown error';
+            elements.progressFill.style.width = '0%';
+
+            showToast('error', 'Processing Failed', result.error || 'An unknown error occurred.');
+
+            setTimeout(() => {
                 navigateTo('upload');
-            }
-        }, 500);
-    } else {
+            }, 2000);
+        }
+    } catch (error) {
+        console.error('Processing failed:', error);
         elements.processingTitle.textContent = 'Processing failed';
-        elements.processingStatus.textContent = result.error;
+        elements.processingStatus.textContent = error.message || 'An unexpected error occurred.';
         elements.progressFill.style.width = '0%';
 
-        showToast('error', 'Processing Failed', result.error);
+        showToast('error', 'Processing Failed', error.message || 'An unexpected error occurred. Please try again.');
 
         setTimeout(() => {
             navigateTo('upload');
