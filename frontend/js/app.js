@@ -303,7 +303,7 @@ async function detectFiles(files, append = false) {
     if (state.detectedReports.length > 0) {
         const primary = state.detectedReports[0];
         state.detectedExchange = primary.exchange;
-        state.transactionCount = primary.rows;
+        state.transactionCount = state.detectedReports.reduce((sum, r) => sum + (r.rows || 0), 0);
         const detectEl = document.getElementById('detected-exchange');
         if (detectEl) {
             detectEl.textContent = `Detected exchange: ${primary.exchange}${primary.report_type ? ' (' + primary.report_type + ')' : ''}`;
