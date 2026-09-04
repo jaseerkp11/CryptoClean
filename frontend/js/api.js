@@ -15,6 +15,48 @@ function safeString(value) {
     return value ? String(value) : '';
 }
 
+function mergeSummary(a, b) {
+    if (!a && !b) return {};
+    if (!a) return b || {};
+    if (!b) return a || {};
+    return {
+        total_transactions: (a.total_transactions || 0) + (b.total_transactions || 0),
+        duplicate_groups: (a.duplicate_groups || 0) + (b.duplicate_groups || 0),
+        exact_duplicates: (a.exact_duplicates || 0) + (b.exact_duplicates || 0),
+        probable_duplicates: (a.probable_duplicates || 0) + (b.probable_duplicates || 0),
+        possible_duplicates: (a.possible_duplicates || 0) + (b.possible_duplicates || 0),
+        internal_transfers: (a.internal_transfers || 0) + (b.internal_transfers || 0),
+        unknown_transactions: (a.unknown_transactions || 0) + (b.unknown_transactions || 0),
+        fees: (a.fees || 0) + (b.fees || 0),
+        deposits: (a.deposits || 0) + (b.deposits || 0),
+        withdrawals: (a.withdrawals || 0) + (b.withdrawals || 0),
+        transfers: (a.transfers || 0) + (b.transfers || 0),
+        trades: (a.trades || 0) + (b.trades || 0),
+        swaps: (a.swaps || 0) + (b.swaps || 0),
+        convert_events: (a.convert_events || 0) + (b.convert_events || 0),
+        unresolved_convert_rows: (a.unresolved_convert_rows || 0) + (b.unresolved_convert_rows || 0),
+        comments: (a.comments || 0) + (b.comments || 0),
+        acquisitions: (a.acquisitions || 0) + (b.acquisitions || 0),
+        disposals: (a.disposals || 0) + (b.disposals || 0),
+        non_accounting: (a.non_accounting || 0) + (b.non_accounting || 0),
+        unresolved: (a.unresolved || 0) + (b.unresolved || 0),
+        accounting_events: (a.accounting_events || 0) + (b.accounting_events || 0),
+        total_proceeds: mergeDecimalStrings(a.total_proceeds, b.total_proceeds),
+        total_cost_basis: mergeDecimalStrings(a.total_cost_basis, b.total_cost_basis),
+        total_fees: mergeDecimalStrings(a.total_fees, b.total_fees),
+        realized_gains: mergeDecimalStrings(a.realized_gains, b.realized_gains),
+        realized_losses: mergeDecimalStrings(a.realized_losses, b.realized_losses),
+        net_realized_pnl: mergeDecimalStrings(a.net_realized_pnl, b.net_realized_pnl)
+    };
+}
+
+function mergeDecimalStrings(a, b) {
+    const aNum = a !== null && a !== undefined && a !== '' ? parseFloat(a) : 0;
+    const bNum = b !== null && b !== undefined && b !== '' ? parseFloat(b) : 0;
+    const sum = aNum + bNum;
+    return sum !== 0 ? String(sum) : null;
+}
+
 const api = {
     /**
      * Check API health status
@@ -119,7 +161,7 @@ const api = {
                 body: formData,
             });
 
-            if (!response.ok) {
+            if (!response.ok && response.status !== 207) {
                 const data = await response.json().catch(() => ({}));
                 console.error('Multi-file endpoint error:', response.status, data);
                 return await this._processFilesIndividually(files, timezone, accounting, plan);
@@ -166,10 +208,20 @@ const api = {
                 combined.data.warnings = (combined.data.warnings || []).concat(result.data.warnings || []);
                 combined.data.errors = (combined.data.errors || []).concat(result.data.errors || []);
                 if (result.data.accounting_result) {
-                    combined.data.accounting_result = result.data.accounting_result;
+                    const prev = combined.data.accounting_result || {};
+                    const next = result.data.accounting_result;
+                    combined.data.accounting_result = {
+                        events: (prev.events || []).concat(next.events || []),
+                        lots: (prev.lots || []).concat(next.lots || []),
+                        consumptions: (prev.consumptions || []).concat(next.consumptions || []),
+                        realized_pnl: (prev.realized_pnl || []).concat(next.realized_pnl || []),
+                        warnings: (prev.warnings || []).concat(next.warnings || []),
+                        errors: (prev.errors || []).concat(next.errors || []),
+                        summary: mergeSummary(prev.summary, next.summary)
+                    };
                 }
                 if (result.data.summary) {
-                    combined.data.summary = result.data.summary;
+                    combined.data.summary = mergeSummary(combined.data.summary, result.data.summary);
                 }
             }
         }
