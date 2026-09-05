@@ -184,6 +184,38 @@ class SwapHandler:
             consumptions.append(consumption)
             disposal_event.linked_lot_ids.append(consumption.lot_id)
 
+        if plan.consumptions and all(c.unit_cost is not None for c in plan.consumptions):
+            total_cost_allocated = sum(c.cost_allocated for c in plan.consumptions if c.cost_allocated is not None)
+            total_realized_pnl = sum(c.realized_pnl for c in plan.consumptions if c.realized_pnl is not None)
+            cost_currency = None
+            pnl_currency = None
+            for c in plan.consumptions:
+                if c.cost_currency is not None:
+                    cost_currency = c.cost_currency
+                if c.pnl_currency is not None:
+                    pnl_currency = c.pnl_currency
+            replacement = AccountingEvent(
+                event_id=disposal_event.event_id,
+                event_type=disposal_event.event_type,
+                source_transaction_ids=disposal_event.source_transaction_ids,
+                timestamp=disposal_event.timestamp,
+                asset=disposal_event.asset,
+                quantity=disposal_event.quantity,
+                cost_basis=total_cost_allocated if total_cost_allocated > 0 else None,
+                cost_currency=cost_currency,
+                proceeds=disposal_event.proceeds,
+                proceeds_currency=disposal_event.proceeds_currency,
+                realized_pnl=total_realized_pnl if total_realized_pnl != 0 else None,
+                pnl_currency=pnl_currency,
+                fee=disposal_event.fee,
+                fee_asset=disposal_event.fee_asset,
+                linked_lot_ids=disposal_event.linked_lot_ids,
+                linked_event_ids=disposal_event.linked_event_ids,
+                warnings=disposal_event.warnings,
+                metadata=disposal_event.metadata,
+            )
+            events[-1] = replacement
+
         if plan.remaining_quantity > 0:
             warnings_list.append(
                 make_warning(

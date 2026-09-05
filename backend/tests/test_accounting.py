@@ -253,6 +253,91 @@ def test_fifo_identical_timestamps_deterministic():
     assert result1.events == result2.events
 
 
+def test_disposal_populates_event_level_cost_basis_and_realized_pnl_single_lot():
+    tx_buy = _tx("tx-1", side=Side.BUY, quantity=Decimal("1"), price=Decimal("50000"), value=Decimal("50000"))
+    tx_sell = _tx("tx-2", side=Side.SELL, quantity=Decimal("1"), price=Decimal("60000"), value=Decimal("60000"))
+    engine = AccountingEngine()
+    result = engine.process([tx_buy, tx_sell])
+    disposal = next(e for e in result.events if e.event_type == AccountingEventType.DISPOSAL)
+    assert disposal.cost_basis == Decimal("50000")
+    assert disposal.cost_currency == "USDT"
+    assert disposal.realized_pnl == Decimal("10000")
+    assert disposal.pnl_currency == "USDT"
+    assert disposal.proceeds == Decimal("60000")
+    assert disposal.proceeds_currency == "USDT"
+
+
+def test_disposal_populates_event_level_cost_basis_and_realized_pnl_multiple_lots():
+    tx_buy1 = _tx("tx-1", side=Side.BUY, quantity=Decimal("2"), price=Decimal("40000"), value=Decimal("80000"), timestamp=datetime(2024, 1, 1, 0, 0, 0, tzinfo=timezone.utc))
+    tx_buy2 = _tx("tx-2", side=Side.BUY, quantity=Decimal("3"), price=Decimal("45000"), value=Decimal("135000"), timestamp=datetime(2024, 1, 2, 0, 0, 0, tzinfo=timezone.utc))
+    tx_sell = _tx("tx-3", side=Side.SELL, quantity=Decimal("4"), price=Decimal("50000"), value=Decimal("200000"), timestamp=datetime(2024, 1, 3, 0, 0, 0, tzinfo=timezone.utc))
+    engine = AccountingEngine()
+    result = engine.process([tx_buy1, tx_buy2, tx_sell])
+    disposal = next(e for e in result.events if e.event_type == AccountingEventType.DISPOSAL)
+    assert disposal.cost_basis == Decimal("170000")
+    assert disposal.cost_currency == "USDT"
+    assert disposal.realized_pnl == Decimal("30000")
+    assert disposal.pnl_currency == "USDT"
+    assert disposal.proceeds == Decimal("200000")
+    assert disposal.proceeds_currency == "USDT"
+
+
+def test_disposal_gain_populates_realized_pnl_positive():
+    tx_buy = _tx("tx-1", side=Side.BUY, quantity=Decimal("1"), price=Decimal("50000"), value=Decimal("50000"))
+    tx_sell = _tx("tx-2", side=Side.SELL, quantity=Decimal("1"), price=Decimal("60000"), value=Decimal("60000"))
+    engine = AccountingEngine()
+    result = engine.process([tx_buy, tx_sell])
+    disposal = next(e for e in result.events if e.event_type == AccountingEventType.DISPOSAL)
+    assert disposal.realized_pnl == Decimal("10000")
+    assert disposal.pnl_currency == "USDT"
+
+
+def test_disposal_loss_populates_realized_pnl_negative():
+    tx_buy = _tx("tx-1", side=Side.BUY, quantity=Decimal("1"), price=Decimal("60000"), value=Decimal("60000"))
+    tx_sell = _tx("tx-2", side=Side.SELL, quantity=Decimal("1"), price=Decimal("50000"), value=Decimal("50000"))
+    engine = AccountingEngine()
+    result = engine.process([tx_buy, tx_sell])
+    disposal = next(e for e in result.events if e.event_type == AccountingEventType.DISPOSAL)
+    assert disposal.realized_pnl == Decimal("-10000")
+    assert disposal.pnl_currency == "USDT"
+
+
+def test_disposal_with_missing_cost_basis_does_not_fabricate():
+    tx_buy = _tx("tx-1", side=Side.BUY, quantity=Decimal("1"), price=None, value=None)
+    tx_sell = _tx("tx-2", side=Side.SELL, quantity=Decimal("1"), price=Decimal("60000"), value=Decimal("60000"))
+    engine = AccountingEngine()
+    result = engine.process([tx_buy, tx_sell])
+    disposal = next(e for e in result.events if e.event_type == AccountingEventType.DISPOSAL)
+    assert disposal.cost_basis is None
+    assert disposal.realized_pnl is None
+    assert disposal.proceeds == Decimal("60000")
+    assert any(w.code == WarningCode.MISSING_COST_BASIS for w in result.warnings)
+
+
+def test_disposal_with_missing_proceeds_does_not_fabricate_pnl():
+    tx_buy = _tx("tx-1", side=Side.BUY, quantity=Decimal("1"), price=Decimal("50000"), value=Decimal("50000"))
+    tx_sell = _tx("tx-2", side=Side.SELL, quantity=Decimal("1"), price=None, value=None)
+    engine = AccountingEngine()
+    result = engine.process([tx_buy, tx_sell])
+    disposal = next(e for e in result.events if e.event_type == AccountingEventType.DISPOSAL)
+    assert disposal.proceeds is None
+    assert disposal.realized_pnl is None
+    assert disposal.cost_basis == Decimal("50000")
+    assert any(w.code == WarningCode.MISSING_PROCEEDS for w in result.warnings)
+
+
+def test_disposal_event_realized_pnl_reconciles_with_aggregate():
+    tx_buy1 = _tx("tx-1", side=Side.BUY, quantity=Decimal("2"), price=Decimal("40000"), value=Decimal("80000"), timestamp=datetime(2024, 1, 1, 0, 0, 0, tzinfo=timezone.utc))
+    tx_buy2 = _tx("tx-2", side=Side.BUY, quantity=Decimal("3"), price=Decimal("45000"), value=Decimal("135000"), timestamp=datetime(2024, 1, 2, 0, 0, 0, tzinfo=timezone.utc))
+    tx_sell = _tx("tx-3", side=Side.SELL, quantity=Decimal("4"), price=Decimal("50000"), value=Decimal("200000"), timestamp=datetime(2024, 1, 3, 0, 0, 0, tzinfo=timezone.utc))
+    engine = AccountingEngine()
+    result = engine.process([tx_buy1, tx_buy2, tx_sell])
+    disposal = next(e for e in result.events if e.event_type == AccountingEventType.DISPOSAL)
+    assert disposal.realized_pnl == Decimal("30000")
+    assert result.summary.total_realized_pnl == Decimal("30000")
+    assert result.summary.pnl_currency == "USDT"
+
+
 # --- Transaction semantics ---
 
 
