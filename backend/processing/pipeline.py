@@ -107,19 +107,27 @@ class ProcessingPipeline:
         if not transactions:
             return result
 
-        dup_result = DuplicateDetector(self.timestamp_tolerance_seconds).detect(transactions)
+        sorted_transactions = sorted(
+            transactions,
+            key=lambda tx: (
+                get_report_priority((tx.metadata or {}).get("source_report_type", "")),
+                tx.timestamp or 0,
+            ),
+        )
+
+        dup_result = DuplicateDetector(self.timestamp_tolerance_seconds).detect(sorted_transactions)
         transfer_result = TransferReconciler(self.timestamp_tolerance_seconds).reconcile(
-            transactions
+            sorted_transactions
         )
         convert_result = ConvertReconciler(self.timestamp_tolerance_seconds).reconcile(
-            transactions
+            sorted_transactions
         )
 
         result.duplicate_findings = dup_result
         result.transfer_matches = transfer_result
         result.convert_matches = convert_result
         result.warnings.extend(convert_result.warnings)
-        result.comment_findings = self.comment_engine.process(transactions)
+        result.comment_findings = self.comment_engine.process(sorted_transactions)
 
         effective_accounting = accounting_config is not None or bool(plan_config.get("accounting"))
         if effective_accounting:
@@ -129,7 +137,7 @@ class ProcessingPipeline:
                 if dup_result is not None:
                     unique_ids = set(dup_result.unique_transaction_ids)
                 result.accounting_result = engine.process(
-                    transactions=transactions,
+                    transactions=sorted_transactions,
                     transfer_result=transfer_result,
                     convert_result=convert_result,
                     comment_result=result.comment_findings,
@@ -139,7 +147,7 @@ class ProcessingPipeline:
                 result.errors.append(f"Accounting failed: {e}")
 
         result.summary = self._build_summary(
-            transactions, dup_result, transfer_result, convert_result, result.comment_findings, result.accounting_result
+            sorted_transactions, dup_result, transfer_result, convert_result, result.comment_findings, result.accounting_result
         )
 
         return result

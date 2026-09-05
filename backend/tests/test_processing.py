@@ -1,4 +1,5 @@
 import io
+from decimal import Decimal
 
 import pytest
 from fastapi.testclient import TestClient
@@ -6,6 +7,8 @@ from fastapi.testclient import TestClient
 from backend.models.transaction import TransactionType
 from backend.processing.pipeline import ProcessingPipeline
 from backend.processing.models import ProcessingResult
+from backend.accounting.configuration import AccountingConfiguration
+from backend.accounting.exceptions import ExceptionCode
 from backend.main import app
 
 BINANCE_CSV = """User ID,Time,Account,Operation,Coin,Change,Remark
@@ -292,3 +295,23 @@ def test_complete_plan_allows_large_files():
     pipeline = _pipeline()
     result = pipeline.process_csv_content(csv_content, "UTC", plan="complete")
     assert result.transaction_count == 10
+
+
+def test_single_file_processes_reverse_chronological_spot_trades_without_insufficient_lots():
+    csv_content = (
+        "Time,Pair,Side,Price,Executed,Amount,Fee\n"
+        "2024-01-02 12:00:00,BTCUSDT,SELL,50000,1BTC,50000,0.0001BTC\n"
+        "2024-01-03 12:00:00,BTCUSDT,BUY,40000,3BTC,120000,0.0003BTC\n"
+        "2024-01-01 12:00:00,BTCUSDT,BUY,30000,2BTC,60000,0.0002BTC\n"
+    )
+    pipeline = _pipeline()
+    result = pipeline.process_csv_content(csv_content, "UTC", plan="standard", accounting_config=AccountingConfiguration())
+    assert result.transaction_count == 3
+    assert not any(e.code == ExceptionCode.INSUFFICIENT_LOTS_FOR_DISPOSAL for e in result.errors)
+    assert len(result.accounting_result.lots) == 2
+    assert len(result.accounting_result.consumptions) == 1
+    assert result.accounting_result.consumptions[0].quantity_consumed == Decimal("0.9999")
+    btc_lots = [lot for lot in result.accounting_result.lots if lot.asset == "BTC"]
+    assert len(btc_lots) == 2
+    first_lot_remaining = btc_lots[0].remaining_quantity
+    assert first_lot_remaining == Decimal("0.9999")
