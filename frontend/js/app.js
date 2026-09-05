@@ -72,7 +72,16 @@ function safeStr(value) {
 function fmtCurrency(value, currency = 'USD') {
     const num = safeNum(value);
     if (num === null) return '<span class="unresolved">UNRESOLVED</span>';
-    return num.toLocaleString('en-US', { style: 'currency', currency: currency.toUpperCase(), minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const upperCurrency = (currency || 'USD').toString().toUpperCase();
+    try {
+        return num.toLocaleString('en-US', { style: 'currency', currency: upperCurrency, minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    } catch (error) {
+        if (error instanceof RangeError) {
+            const formatted = num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            return `${formatted} ${upperCurrency}`;
+        }
+        throw error;
+    }
 }
 
 function fmtNumber(value) {
