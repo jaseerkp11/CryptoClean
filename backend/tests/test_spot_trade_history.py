@@ -1173,3 +1173,76 @@ def test_real_format_quantity_value_relationship():
     tx = result.transactions[0]
     expected_value = tx.quantity * tx.price
     assert tx.value == expected_value
+
+
+# 46. LUNABUSD resolves to LUNA/BUSD without ambiguity
+def test_lunabusd_resolves_without_ambiguity():
+    adapter = _adapter()
+    rows = [
+        {
+            "Date(UTC)": "2024-01-01 12:00:00",
+            "Pair": "LUNABUSD",
+            "Type": "Buy",
+            "Order Price": "0.000353",
+            "Amount": "45270.25",
+            "Total": "16.0",
+            "Fee": "45.27025",
+            "Fee Coin": "LUNA",
+        }
+    ]
+    result = adapter.adapt(rows)
+    assert len(result.transactions) == 1
+    tx = result.transactions[0]
+    assert tx.asset == "LUNA"
+    assert tx.quote_asset == "BUSD"
+    assert tx.fee_asset == "LUNA"
+
+
+# 47. LUNABUSD does not raise ambiguity error
+def test_lunabusd_does_not_raise_ambiguity_error():
+    adapter = _adapter()
+    rows = [
+        {
+            "Date(UTC)": "2024-01-01 12:00:00",
+            "Pair": "LUNABUSD",
+            "Type": "Buy",
+            "Order Price": "0.000353",
+            "Amount": "45270.25",
+            "Total": "16.0",
+            "Fee": "45.27025",
+            "Fee Coin": "LUNA",
+        }
+    ]
+    result = adapter.adapt(rows)
+    assert len(result.errors) == 0
+    assert len(result.warnings) == 0
+    assert result.transactions[0].quote_asset == "BUSD"
+
+
+# 48. existing stablecoin parsing remains correct
+def test_existing_stablecoin_parsing_remains_correct():
+    adapter = _adapter()
+    cases = [
+        ("BTCUSDT", "BTC", "USDT"),
+        ("ETHUSDC", "ETH", "USDC"),
+        ("BNBUSDT", "BNB", "USDT"),
+        ("SOLBUSD", "SOL", "BUSD"),
+    ]
+    for pair, expected_asset, expected_quote in cases:
+        rows = [
+            {
+                "Date(UTC)": "2024-01-01 12:00:00",
+                "Pair": pair,
+                "Type": "Buy",
+                "Order Price": "100",
+                "Amount": "1",
+                "Total": "100",
+                "Fee": "0.1",
+                "Fee Coin": "BNB",
+            }
+        ]
+        result = adapter.adapt(rows)
+        assert len(result.transactions) == 1, f"Failed for {pair}"
+        tx = result.transactions[0]
+        assert tx.asset == expected_asset, f"Wrong asset for {pair}: {tx.asset}"
+        assert tx.quote_asset == expected_quote, f"Wrong quote for {pair}: {tx.quote_asset}"

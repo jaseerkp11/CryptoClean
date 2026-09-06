@@ -129,6 +129,8 @@ class BinanceSpotTradeHistoryAdapter(BaseAdapter):
         matches = []
         for quote in sorted(self.KNOWN_QUOTE_ASSETS, key=len, reverse=True):
             if pair.endswith(quote) and len(pair) > len(quote):
+                if any(m.endswith(quote) for m in matches):
+                    continue
                 matches.append(quote)
         if len(matches) == 1:
             return pair[: -len(matches[0])], matches[0]
