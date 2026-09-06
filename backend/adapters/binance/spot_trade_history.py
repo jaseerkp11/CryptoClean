@@ -198,10 +198,6 @@ class BinanceSpotTradeHistoryAdapter(BaseAdapter):
                 quantity_raw = quantity_str
                 asset_suffix = None
                 quantity_str, asset_suffix = self._strip_asset_suffix(quantity_str)
-                if asset_suffix:
-                    warnings.append(
-                        f"Asset suffix '{asset_suffix}' stripped from quantity for row."
-                    )
 
                 quantity = self._parse_decimal(quantity_str, "quantity")
 
