@@ -1423,7 +1423,24 @@ function renderHoldings(accountingResult) {
 function renderMissingBasis(accountingResult) {
     try {
         const events = accountingResult?.events || [];
-        const missingBasis = events.filter(e => e.event_type === 'DISPOSAL' && (e.cost_basis === null || e.cost_basis === undefined));
+        const consumptions = accountingResult?.consumptions || [];
+        const consumptionMap = new Map();
+        for (const c of consumptions) {
+            const key = c.disposal_event_id;
+            if (!consumptionMap.has(key)) {
+                consumptionMap.set(key, []);
+            }
+            consumptionMap.get(key).push(c);
+        }
+
+        const missingBasis = events.filter(e => {
+            if (e.event_type !== 'DISPOSAL') return false;
+            const sourceTxId = (e.source_transaction_ids && e.source_transaction_ids[0]) || null;
+            if (!sourceTxId) return true;
+            const linked = consumptionMap.get(sourceTxId) || [];
+            if (linked.length === 0) return true;
+            return linked.every(c => c.cost_allocated === null || c.cost_allocated === undefined);
+        });
         const missingBody = document.getElementById('missing-basis-body');
 
         if (missingBasis.length > 0) {
