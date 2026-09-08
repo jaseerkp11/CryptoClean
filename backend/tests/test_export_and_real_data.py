@@ -40,7 +40,7 @@ def test_real_binance_operation_type_coverage():
     assert type_counts.get("DEPOSIT", 0) == 127
     assert type_counts.get("WITHDRAWAL", 0) == 47
     assert type_counts.get("FEE", 0) >= 150
-    assert type_counts.get("REWARD", 0) >= 200
+    assert type_counts.get("REWARD", 0) == 176
     assert type_counts.get("TRADE", 0) >= 240
     assert type_counts.get("TRANSFER", 0) >= 340
     assert type_counts.get("AIRDROP", 0) >= 10

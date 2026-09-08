@@ -107,6 +107,11 @@ class BinanceTransactionRecordAdapter(BaseAdapter):
                 return TransactionType.TRADE, Side.SELL, ""
             return TransactionType.UNKNOWN, None, f"Non-negative {op}."
 
+        if op == "Transaction Revenue":
+            if signed > 0:
+                return TransactionType.TRADE, Side.BUY, ""
+            return TransactionType.UNKNOWN, None, f"Non-negative {op}."
+
         if op == "Buy":
             return TransactionType.TRADE, Side.BUY, ""
 
@@ -226,6 +231,79 @@ class BinanceTransactionRecordAdapter(BaseAdapter):
 
         return TransactionType.UNKNOWN, None, f"Unrecognized Binance operation: {op}"
 
+    def _pair_transaction_legs(self, transactions: List[CanonicalTransaction]) -> None:
+        from collections import defaultdict
+        from decimal import Decimal
+
+        groups = defaultdict(list)
+        for tx in transactions:
+            if tx.transaction_type == TransactionType.TRADE and tx.timestamp:
+                groups[tx.timestamp].append(tx)
+
+        for timestamp, txs in groups.items():
+            if len(txs) < 2:
+                continue
+
+            trade_ops = []
+            for tx in txs:
+                op = (tx.metadata or {}).get("source_operation", "")
+                if op in {"Transaction Buy", "Transaction Spend", "Transaction Sold", "Transaction Revenue"}:
+                    trade_ops.append(tx)
+
+            if len(trade_ops) != 2:
+                continue
+
+            buy_leg = next((tx for tx in trade_ops if (tx.metadata or {}).get("source_operation") == "Transaction Buy"), None)
+            spend_leg = next((tx for tx in trade_ops if (tx.metadata or {}).get("source_operation") == "Transaction Spend"), None)
+            sold_leg = next((tx for tx in trade_ops if (tx.metadata or {}).get("source_operation") == "Transaction Sold"), None)
+            revenue_leg = next((tx for tx in trade_ops if (tx.metadata or {}).get("source_operation") == "Transaction Revenue"), None)
+
+            pair = None
+            acquisition_leg = None
+            disposal_leg = None
+            if buy_leg and spend_leg and buy_leg.asset != spend_leg.asset:
+                acquisition_leg = buy_leg
+                disposal_leg = spend_leg
+                pair = (acquisition_leg, disposal_leg)
+            elif sold_leg and revenue_leg and sold_leg.asset != revenue_leg.asset:
+                acquisition_leg = revenue_leg
+                disposal_leg = sold_leg
+                pair = (acquisition_leg, disposal_leg)
+
+            if not pair:
+                continue
+
+            acquisition_qty = acquisition_leg.quantity
+            disposal_qty = disposal_leg.quantity
+            if acquisition_qty <= 0 or disposal_qty <= 0:
+                continue
+
+            if buy_leg and spend_leg and buy_leg.asset != spend_leg.asset:
+                implied_price = disposal_qty / acquisition_qty
+                implied_value = disposal_qty
+            elif sold_leg and revenue_leg and sold_leg.asset != revenue_leg.asset:
+                implied_price = acquisition_qty / disposal_qty
+                implied_value = acquisition_qty
+            else:
+                continue
+
+            if acquisition_leg.price is None:
+                acquisition_leg.__dict__["price"] = implied_price
+            if acquisition_leg.value is None:
+                acquisition_leg.__dict__["value"] = implied_value
+            if disposal_leg.price is None:
+                disposal_leg.__dict__["price"] = implied_price
+            if disposal_leg.value is None:
+                disposal_leg.__dict__["value"] = implied_value
+
+            if acquisition_leg.quote_asset is None:
+                if buy_leg and spend_leg and buy_leg.asset != spend_leg.asset:
+                    acquisition_leg.__dict__["quote_asset"] = spend_leg.asset
+                    disposal_leg.__dict__["quote_asset"] = buy_leg.asset
+                elif sold_leg and revenue_leg and sold_leg.asset != revenue_leg.asset:
+                    acquisition_leg.__dict__["quote_asset"] = sold_leg.asset
+                    disposal_leg.__dict__["quote_asset"] = revenue_leg.asset
+
     def adapt(self, rows: List[Dict[str, Any]]) -> AdapterResult:
         column_error = self._validate_columns(rows)
         if column_error:
@@ -287,5 +365,7 @@ class BinanceTransactionRecordAdapter(BaseAdapter):
                 transactions.append(tx)
             except Exception as exc:
                 errors.append(f"Failed to adapt row: {exc}")
+
+        self._pair_transaction_legs(transactions)
 
         return AdapterResult(transactions=transactions, warnings=warnings, errors=errors)

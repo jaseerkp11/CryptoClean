@@ -368,3 +368,59 @@ def test_airdrop_maps_to_airdrop():
     tx = result.transactions[0]
     assert tx.transaction_type == TransactionType.AIRDROP
     assert tx.quantity == Decimal("100.0")
+
+
+def test_transaction_buy_and_spend_are_paired_with_implied_price():
+    adapter = BinanceTransactionRecordAdapter(timezone="UTC")
+    rows = [
+        {"User ID": "REDACTED", "Time": "2022-01-02 00:26:21", "Account": "Spot", "Operation": "Transaction Buy", "Coin": "TRX", "Change": "+221.4", "Remark": ""},
+        {"User ID": "REDACTED", "Time": "2022-01-02 00:26:21", "Account": "Spot", "Operation": "Transaction Spend", "Coin": "USDT", "Change": "-16.901676", "Remark": ""},
+    ]
+    result = adapter.adapt(rows)
+    assert len(result.transactions) == 2
+
+    buy_tx = next(tx for tx in result.transactions if tx.side == Side.BUY)
+    spend_tx = next(tx for tx in result.transactions if tx.side == Side.SELL)
+
+    assert buy_tx.asset == "TRX"
+    assert buy_tx.quote_asset == "USDT"
+    assert buy_tx.price == Decimal("16.901676") / Decimal("221.4")
+    assert buy_tx.value == Decimal("16.901676")
+
+    assert spend_tx.asset == "USDT"
+    assert spend_tx.price == Decimal("16.901676") / Decimal("221.4")
+    assert spend_tx.value == Decimal("16.901676")
+
+
+def test_transaction_sold_and_revenue_are_paired_with_implied_price():
+    adapter = BinanceTransactionRecordAdapter(timezone="UTC")
+    rows = [
+        {"User ID": "REDACTED", "Time": "2022-01-25 21:32:21", "Account": "Spot", "Operation": "Transaction Sold", "Coin": "BNB", "Change": "-0.579", "Remark": ""},
+        {"User ID": "REDACTED", "Time": "2022-01-25 21:32:21", "Account": "Spot", "Operation": "Transaction Revenue", "Coin": "USDT", "Change": "+215.2722", "Remark": ""},
+    ]
+    result = adapter.adapt(rows)
+    assert len(result.transactions) == 2
+
+    sold_tx = next(tx for tx in result.transactions if (tx.metadata or {}).get("source_operation") == "Transaction Sold")
+    revenue_tx = next(tx for tx in result.transactions if (tx.metadata or {}).get("source_operation") == "Transaction Revenue")
+
+    assert sold_tx.asset == "BNB"
+    assert sold_tx.side == Side.SELL
+    assert sold_tx.price == Decimal("215.2722") / Decimal("0.579")
+    assert sold_tx.value == Decimal("215.2722")
+
+    assert revenue_tx.asset == "USDT"
+    assert revenue_tx.side == Side.BUY
+    assert revenue_tx.value == Decimal("215.2722")
+
+
+def test_unpaired_trade_legs_remain_unchanged():
+    adapter = BinanceTransactionRecordAdapter(timezone="UTC")
+    rows = [
+        {"User ID": "REDACTED", "Time": "2022-01-02 00:26:21", "Account": "Spot", "Operation": "Transaction Buy", "Coin": "TRX", "Change": "+221.4", "Remark": ""},
+    ]
+    result = adapter.adapt(rows)
+    assert len(result.transactions) == 1
+    tx = result.transactions[0]
+    assert tx.price is None
+    assert tx.value is None
